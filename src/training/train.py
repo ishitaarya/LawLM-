@@ -1,10 +1,17 @@
 import json
+import sys
 import time
 from pathlib import Path
 
 import torch
 from torch.utils.data import DataLoader, TensorDataset
 from tqdm import tqdm
+
+# Allow this file to run directly from the project root:
+# python src/training/train.py
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
 
 from src.model.lawlm_model import LawLM
 
@@ -24,18 +31,12 @@ DEVICE = torch.device("cpu")
 
 def load_split(path):
     data = torch.load(path, map_location="cpu", weights_only=True)
-
-    dataset = TensorDataset(
-        data["inputs"],
-        data["targets"],
-    )
-
+    dataset = TensorDataset(data["inputs"], data["targets"])
     return dataset, data
 
 
 def evaluate(model, loader):
     model.eval()
-
     total_loss = 0.0
     total_batches = 0
 
@@ -43,32 +44,24 @@ def evaluate(model, loader):
         for inputs, targets in loader:
             inputs = inputs.to(DEVICE)
             targets = targets.to(DEVICE)
-
             _, loss = model(inputs, targets)
-
             total_loss += loss.item()
             total_batches += 1
 
     return total_loss / max(total_batches, 1)
 
 
-def save_checkpoint(
-    model,
-    optimizer,
-    epoch,
-    train_loss,
-    val_loss,
-    path,
-):
-    checkpoint = {
-        "model_state_dict": model.state_dict(),
-        "optimizer_state_dict": optimizer.state_dict(),
-        "epoch": epoch,
-        "train_loss": train_loss,
-        "val_loss": val_loss,
-    }
-
-    torch.save(checkpoint, path)
+def save_checkpoint(model, optimizer, epoch, train_loss, val_loss, path):
+    torch.save(
+        {
+            "model_state_dict": model.state_dict(),
+            "optimizer_state_dict": optimizer.state_dict(),
+            "epoch": epoch,
+            "train_loss": train_loss,
+            "val_loss": val_loss,
+        },
+        path,
+    )
 
 
 def main():
@@ -93,17 +86,8 @@ def main():
     train_dataset, train_data = load_split(TRAIN_FILE)
     val_dataset, _ = load_split(VAL_FILE)
 
-    train_loader = DataLoader(
-        train_dataset,
-        batch_size=BATCH_SIZE,
-        shuffle=True,
-    )
-
-    val_loader = DataLoader(
-        val_dataset,
-        batch_size=BATCH_SIZE,
-        shuffle=False,
-    )
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
+    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
 
     model = LawLM(
         vocab_size=train_data["vocab_size"],
@@ -125,41 +109,29 @@ def main():
 
     for epoch in range(1, EPOCHS + 1):
         model.train()
-
         start_time = time.time()
         total_loss = 0.0
         total_batches = 0
 
-        progress = tqdm(
-            train_loader,
-            desc=f"Epoch {epoch}/{EPOCHS}",
-        )
+        progress = tqdm(train_loader, desc=f"Epoch {epoch}/{EPOCHS}")
 
         for inputs, targets in progress:
             inputs = inputs.to(DEVICE)
             targets = targets.to(DEVICE)
 
             optimizer.zero_grad(set_to_none=True)
-
             _, loss = model(inputs, targets)
-
             loss.backward()
 
-            torch.nn.utils.clip_grad_norm_(
-                model.parameters(),
-                GRAD_CLIP,
-            )
-
+            torch.nn.utils.clip_grad_norm_(model.parameters(), GRAD_CLIP)
             optimizer.step()
 
             total_loss += loss.item()
             total_batches += 1
-
             progress.set_postfix(loss=f"{loss.item():.4f}")
 
         train_loss = total_loss / max(total_batches, 1)
         val_loss = evaluate(model, val_loader)
-
         elapsed = time.time() - start_time
 
         history.append(
@@ -179,32 +151,26 @@ def main():
             f"time={elapsed:.1f}s"
         )
 
-        latest_path = CHECKPOINT_DIR / "latest.pt"
-
         save_checkpoint(
             model,
             optimizer,
             epoch,
             train_loss,
             val_loss,
-            latest_path,
+            CHECKPOINT_DIR / "latest.pt",
         )
 
         if val_loss < best_val_loss:
             best_val_loss = val_loss
-
-            best_path = CHECKPOINT_DIR / "best.pt"
-
             save_checkpoint(
                 model,
                 optimizer,
                 epoch,
                 train_loss,
                 val_loss,
-                best_path,
+                CHECKPOINT_DIR / "best.pt",
             )
-
-            print(f"New best model saved: {best_path}")
+            print("New best model saved: checkpoints/best.pt")
 
     history_path = Path("experiments/training_history.json")
     history_path.parent.mkdir(parents=True, exist_ok=True)
@@ -217,8 +183,8 @@ def main():
     print("Training completed!")
     print(f"Best validation loss: {best_val_loss:.4f}")
     print(f"Latest checkpoint:   {CHECKPOINT_DIR / 'latest.pt'}")
-    print(f"Best checkpoint:      {CHECKPOINT_DIR / 'best.pt'}")
-    print(f"History:              {history_path}")
+    print(f"Best checkpoint:     {CHECKPOINT_DIR / 'best.pt'}")
+    print(f"History:             {history_path}")
     print("=" * 60)
 
 
