@@ -100,3 +100,61 @@ LawLM is an educational language-model project. Generated text must not be treat
 ## License
 
 The LawLM source code is licensed separately from the external dataset. The Open India Law dataset remains subject to its stated CC BY 4.0 terms and attribution requirements.
+
+## Phase 1 — Project, Hardware & Storage Architecture
+
+Phase 1 now defines the scalable architecture for the LawLM project.
+
+### Scaling target
+
+200 GB → 500 GB → 1 TB → 2 TB → 5 TB
+
+The corpus target refers to the source reservoir. It is not loaded into RAM or automatically used as one training run.
+
+### Initial from-scratch model
+
+- ~50M parameters
+- 8 Transformer layers
+- 512 embedding dimension
+- 8 attention heads
+- 2048 FFN dimension
+- 512-token context
+- 16K vocabulary
+- Random initialization
+- No pretrained LLM
+
+### Device-agnostic design
+
+The project supports:
+
+- CPU development and preprocessing
+- NVIDIA CUDA training where supported
+- AMD ROCm where the exact hardware/software stack is supported
+- Apple MPS where supported
+- Later cloud/distributed GPU training
+
+### Storage architecture
+
+The data pipeline is separated into:
+
+`data/raw` → `data/extracted` → `data/cleaned` → `data/deduplicated` → `data/structured` → `data/tokenized` → train/validation/test
+
+For a 200 GB source corpus, Phase 1 recommends at least 500 GB of free workspace and prefers approximately 1 TB. The pipeline is designed to process data incrementally when local storage is insufficient.
+
+### Phase 1 files
+
+- `configs/project.yaml` — project-wide architecture and scaling configuration
+- `configs/hardware_profiles.yaml` — portable CPU/CUDA/ROCm/MPS profiles
+- `src/utils/system_info.py` — runtime, CPU, storage, and PyTorch-device inspection
+- `tests/test_phase1_config.py` — Phase 1 configuration tests
+- `docs/PHASE_01_ARCHITECTURE.md` — detailed Phase 1 architecture
+
+Run the environment inspection with:
+
+```bash
+python src/utils/system_info.py
+```
+
+### Next phase
+
+**Phase 2 — Legal Data Collection:** build a resumable, logged ingestion pipeline before attempting the large legal corpus download.
