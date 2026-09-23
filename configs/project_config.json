@@ -1,0 +1,54 @@
+{
+  "project": {
+    "name": "LawLM",
+    "description": "Scalable legal language model and legal guided advisor",
+    "stage": "phase_1",
+    "model_training": "from_scratch",
+    "pretrained_llm": false
+  },
+  "scaling": {
+    "source_corpus_gb": 200,
+    "future_corpus_gb": [500, 1000, 2000, 5000],
+    "strategy": "partitioned_streaming",
+    "ram_load_all_data": false
+  },
+  "storage": {
+    "raw_dir": "data/raw",
+    "extracted_dir": "data/extracted",
+    "cleaned_dir": "data/cleaned",
+    "deduplicated_dir": "data/deduplicated",
+    "structured_dir": "data/structured",
+    "tokenized_dir": "data/tokenized",
+    "train_dir": "data/train",
+    "validation_dir": "data/validation",
+    "test_dir": "data/test",
+    "checkpoints_dir": "checkpoints",
+    "logs_dir": "logs",
+    "experiments_dir": "experiments",
+    "vector_db_dir": "vector_db"
+  },
+  "hardware": {
+    "local_role": "development_testing_small_scale_training",
+    "preferred_device": "auto",
+    "cpu_fallback": true,
+    "dataloader_workers": 2,
+    "pin_memory": false,
+    "persistent_workers": false
+  },
+  "initial_model": {
+    "parameters_target": 50000000,
+    "layers": 8,
+    "embedding_dim": 512,
+    "attention_heads": 8,
+    "ffn_dim": 2048,
+    "context_length": 512,
+    "vocab_size": 16000
+  },
+  "data_policy": {
+    "raw_data_in_git": false,
+    "processed_large_data_in_git": false,
+    "checkpoints_in_git": false,
+    "metadata_in_git": true,
+    "logs_in_git": false
+  }
+}
