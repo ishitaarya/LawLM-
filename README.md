@@ -4,7 +4,25 @@ LawLM is a B.Tech AI/ML project that builds a small decoder-only Transformer lan
 
 ## Core project principle
 
-LawLM is trained **from randomly initialized weights** on a legal dataset. It does not fine-tune GPT, Llama, Mistral, Qwen, or any other pretrained LLM.
+LawLM is trained from randomly initialized weights on a legal dataset. It does not fine-tune GPT, Llama, Mistral, Qwen, or any other pretrained LLM.
+
+## Dataset
+
+The project uses the Open India Law legislation subset published by Vaquill AI. The corpus is normalized from Indian primary-law sources and the legislation portion is sourced from India Code. Legislation records include provenance such as title, section, status, jurisdiction, and source URL.
+
+For the student-scale prototype, LawLM streams and keeps 5,000 legislation provisions locally instead of downloading the entire corpus.
+
+- Dataset: vaquill/open-india-law
+- Configuration: legislation
+- Dataset license: CC BY 4.0
+- Scripts in this repository: Apache-2.0
+- Source/provenance: official government legal sources as documented by Open India Law
+- Dataset snapshot: use the current snapshot available when the data is downloaded
+- Attribution: Vaquill AI / Open India Law, with required CC BY 4.0 attribution
+
+Source: https://github.com/Vaquill-AI/open-india-law
+
+The dataset is a point-in-time archive. Legal content changes over time, so generated output must be verified against the current official source before any real-world use.
 
 ## Planned pipeline
 
@@ -27,29 +45,44 @@ LawLM is trained **from randomly initialized weights** on a legal dataset. It do
 - Python 3.13
 - PyTorch 2.14.0 CPU build
 - AMD Radeon graphics detected; CUDA is unavailable
-- Virtual environment: `.venv`
+- Virtual environment: .venv
 - Basic ML/data dependencies configured
 - Project directory structure created
-- Environment test available at `tests/test_environment.py`
+- Environment test available at tests/test_environment.py
 
-The first prototype will be intentionally small so it can be developed and tested on a student laptop.
+### Phase 2 — Dataset Pipeline
+
+The repository now contains a one-command dataset pipeline:
+
+1. Stream Open India Law legislation
+2. Keep 5,000 provisions
+3. Clean and normalize text
+4. Remove duplicate provisions/text
+5. Create 90/5/5 train/validation/test splits
+6. Print dataset statistics
+
+The raw dataset is intentionally excluded from Git via .gitignore.
 
 ## Project structure
 
-```
 LawLM/
 ├── data/
 │   ├── raw/
 │   ├── processed/
 │   └── splits/
-├── tokenizer/
 ├── src/
 │   ├── data/
+│   │   ├── download_dataset.py
+│   │   ├── clean_dataset.py
+│   │   ├── split_dataset.py
+│   │   ├── dataset_stats.py
+│   │   └── run_pipeline.py
 │   ├── tokenizer/
 │   ├── model/
 │   ├── training/
 │   ├── generation/
 │   └── evaluation/
+├── tokenizer/
 ├── checkpoints/
 ├── experiments/
 ├── graphs/
@@ -59,7 +92,6 @@ LawLM/
 ├── .gitignore
 ├── requirements.txt
 └── README.md
-```
 
 ## Important limitation
 
@@ -67,4 +99,4 @@ LawLM is an educational language-model project. Generated text must not be treat
 
 ## License
 
-To be decided as the project develops.
+The LawLM source code is licensed separately from the external dataset. The Open India Law dataset remains subject to its stated CC BY 4.0 terms and attribution requirements.
