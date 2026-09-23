@@ -1,0 +1,26 @@
+profiles:
+  cpu:
+    purpose: "Development, preprocessing, tokenizer training, small model experiments"
+    device: "cpu"
+    large_scale_training: false
+
+  nvidia_cuda:
+    purpose: "GPU training when CUDA-compatible NVIDIA GPU is available"
+    device: "cuda"
+    large_scale_training: true
+
+  amd_rocm:
+    purpose: "GPU training when supported AMD ROCm environment is available"
+    device: "rocm"
+    large_scale_training: "depends_on_supported_hardware"
+
+  apple_mps:
+    purpose: "Development and compatible training on Apple Silicon"
+    device: "mps"
+    large_scale_training: false
+
+project_rule:
+  - "The code must remain device-agnostic."
+  - "Do not assume CUDA."
+  - "Do not require a GPU for data preparation."
+  - "Move large training runs to suitable GPU infrastructure when local hardware is insufficient."
