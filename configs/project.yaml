@@ -1,0 +1,50 @@
+project:
+  name: LawLM
+  version: "0.1.0"
+  phase: 1
+  description: "Scalable legal language model built from scratch"
+
+scaling:
+  source_corpus_targets:
+    v1: "200GB"
+    v2: "500GB"
+    v3: "1TB"
+    v4: "2TB"
+    v5: "5TB"
+  rule: "Source corpus size is not the same as training-run size."
+
+storage:
+  minimum_free_space_gb_before_large_download: 300
+  recommended_free_space_gb_for_200gb_source: 500
+  preferred_workspace_gb: 1000
+  keep_raw_separate: true
+  keep_processed_separate: true
+  keep_checkpoints_separate: true
+
+model_initial:
+  parameters_target: "50M"
+  layers: 8
+  embedding_dim: 512
+  attention_heads: 8
+  ffn_dim: 2048
+  context_length: 512
+  vocabulary_size: 16000
+  initialization: "random"
+  pretrained_model: false
+
+data_pipeline:
+  raw: data/raw
+  extracted: data/extracted
+  cleaned: data/cleaned
+  deduplicated: data/deduplicated
+  structured: data/structured
+  tokenized: data/tokenized
+  train: data/train
+  validation: data/validation
+  test: data/test
+
+runtime:
+  batch_size: "hardware-dependent"
+  gradient_accumulation: true
+  device_selection: "auto"
+  precision: "auto"
