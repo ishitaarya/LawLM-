@@ -7,7 +7,7 @@ from datasets import load_dataset
 # We use the public OSS mirror instead of the gated Hugging Face dataset.
 BASE_URL = "https://oss-data-in.vaquill.ai"
 VERSION = "v2026.08.1"
-JURISDICTION = "madhya_pradesh"
+JURISDICTION = "madhya-pradesh"
 MAX_DOCUMENTS = 5000
 
 OUTPUT_FILE = Path("data/raw/open_india_law_legislation.jsonl")
