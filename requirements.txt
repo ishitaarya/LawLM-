@@ -7,3 +7,4 @@ matplotlib
 tqdm
 scikit-learn
 sentencepiece
+datasets==5.0.1
