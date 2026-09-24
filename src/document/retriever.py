@@ -57,10 +57,11 @@ LEGAL_CONCEPTS = {
         "phrases": (
             "without consideration",
             "agreement without consideration",
+            "agreement made without consideration",
         ),
         "terms": (
             "consideration", "writing", "registered", "natural love",
-            "affection", "compensation", "promise",
+            "affection", "compensation", "promise", "debt",
         ),
         "sections": {"25"},
     },
@@ -233,6 +234,15 @@ def search(query: str, chunks: list[dict], idf: dict[str, float],
                 if term in text or term in title
             )
             score += min(matched_terms * 0.015, 0.12)
+
+            # Stronger evidence when the query's defining legal phrase
+            # appears verbatim in the retrieved chunk.
+            matched_phrases = sum(
+                1
+                for phrase in concept["phrases"]
+                if phrase in text or phrase in title
+            )
+            score += min(matched_phrases * 0.45, 0.90)
 
         if score > 0:
             result = dict(chunk)
