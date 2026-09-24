@@ -1,7 +1,8 @@
 """
 LawSuit LLM — Phase 6B Legal Text Chunker
 
-Converts page-level PDF JSONL into retrieval-friendly legal chunks.
+Converts page-level PDF JSONL into retrieval-friendly legal chunks while
+preserving legal section boundaries.
 """
 
 import json
@@ -14,10 +15,6 @@ DEFAULT_OUTPUT = Path("data/documents/Indian_Contract_Act_1872_chunks.jsonl")
 CHUNK_SIZE = 1200
 CHUNK_OVERLAP = 150
 
-# Indian Contract Act headings in the extracted PDF generally follow:
-# "10. What agreements are contracts.—..."
-# Requiring the dash prevents ordinary numbered references in legal prose
-# from being mistaken for section headings.
 SECTION_PATTERN = re.compile(
     r"(?m)(?:^|\n)\s*(\d+[A-Z]?)\.\s+(.+?)(?:\s*[—–-]\s*)"
 )
@@ -31,15 +28,52 @@ def clean_text(text: str) -> str:
     return text.strip()
 
 
-def detect_section(text: str) -> tuple[str | None, str | None]:
-    """Detect the first reliable legal section heading in a text fragment."""
-    match = SECTION_PATTERN.search(text)
+def find_section_headings(text: str) -> list[re.Match]:
+    """Find reliable legal section headings in body text."""
+    return list(SECTION_PATTERN.finditer(text))
 
-    if not match:
-        return None, None
 
-    title = match.group(2).strip()
-    return match.group(1), title
+def split_into_sections(
+    text: str,
+    current_section_number: str | None,
+    current_section_title: str | None,
+) -> list[tuple[str | None, str | None, str]]:
+    """
+    Split page text at legal section headings.
+
+    This prevents a 1200-character chunk from crossing section boundaries
+    without preserving the correct section metadata.
+    """
+    matches = find_section_headings(text)
+
+    if not matches:
+        return [(current_section_number, current_section_title, text)]
+
+    segments = []
+    cursor = 0
+    active_number = current_section_number
+    active_title = current_section_title
+
+    # Text before the first heading belongs to the section carried from
+    # the previous page, if one exists.
+    prefix = text[:matches[0].start()].strip()
+    if prefix:
+        segments.append((active_number, active_title, prefix))
+
+    for index, match in enumerate(matches):
+        active_number = match.group(1)
+        active_title = match.group(2).strip()
+
+        start = match.start()
+        end = matches[index + 1].start() if index + 1 < len(matches) else len(text)
+        segment_text = text[start:end].strip()
+
+        if segment_text:
+            segments.append((active_number, active_title, segment_text))
+
+        cursor = end
+
+    return segments
 
 
 def split_text(text: str) -> list[str]:
@@ -79,7 +113,7 @@ def load_pages(path: Path) -> list[dict]:
 
 
 def create_chunks(pages: list[dict]) -> list[dict]:
-    """Create chunks while preserving reliable section metadata."""
+    """Create retrieval-friendly chunks while preserving section boundaries."""
     chunks = []
     chunk_counter = 1
     current_section_number = None
@@ -88,37 +122,35 @@ def create_chunks(pages: list[dict]) -> list[dict]:
     for page in pages:
         source_file = page.get("source_file", "")
         page_number = page.get("page_number")
-        raw_text = page.get("text", "")
-        text = clean_text(raw_text)
+        text = clean_text(page.get("text", ""))
 
         if not text:
             continue
 
-        page_section_number, page_section_title = detect_section(text)
+        sections = split_into_sections(
+            text,
+            current_section_number,
+            current_section_title,
+        )
 
-        if page_section_number:
-            current_section_number = page_section_number
-            current_section_title = page_section_title
+        for section_number, section_title, section_text in sections:
+            if section_number:
+                current_section_number = section_number
+                current_section_title = section_title
 
-        for chunk_text in split_text(text):
-            chunk_section_number, chunk_section_title = detect_section(chunk_text)
-
-            if chunk_section_number:
-                current_section_number = chunk_section_number
-                current_section_title = chunk_section_title
-
-            chunks.append(
-                {
-                    "chunk_id": f"contract_{chunk_counter:05d}",
-                    "source_file": source_file,
-                    "page_number": page_number,
-                    "section_number": current_section_number,
-                    "section_title": current_section_title,
-                    "text": chunk_text,
-                    "character_count": len(chunk_text),
-                }
-            )
-            chunk_counter += 1
+            for chunk_text in split_text(section_text):
+                chunks.append(
+                    {
+                        "chunk_id": f"contract_{chunk_counter:05d}",
+                        "source_file": source_file,
+                        "page_number": page_number,
+                        "section_number": section_number or current_section_number,
+                        "section_title": section_title or current_section_title,
+                        "text": chunk_text,
+                        "character_count": len(chunk_text),
+                    }
+                )
+                chunk_counter += 1
 
     return chunks
 
