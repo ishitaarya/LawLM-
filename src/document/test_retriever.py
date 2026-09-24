@@ -40,13 +40,7 @@ TEST_CASES = [
 
 
 def evaluate_case(case: dict, chunks: list[dict], idf: dict, vectors: list[dict]):
-    results = search(
-        case["query"],
-        chunks,
-        idf,
-        vectors,
-        top_k=5,
-    )
+    results = search(case["query"], chunks, idf, vectors, top_k=5)
 
     retrieved_sections = [
         str(result.get("section_number"))
@@ -56,36 +50,19 @@ def evaluate_case(case: dict, chunks: list[dict], idf: dict, vectors: list[dict]
 
     expected = case["expected_sections"]
 
-    top1_hit = bool(
-        retrieved_sections
-        and retrieved_sections[0] in expected
-    )
-
-    top3_hit = any(
-        section in expected
-        for section in retrieved_sections[:3]
-    )
-
-    top5_hit = any(
-        section in expected
-        for section in retrieved_sections[:5]
-    )
-
     return {
         "query": case["query"],
         "expected": expected,
         "retrieved": retrieved_sections,
-        "top1": top1_hit,
-        "top3": top3_hit,
-        "top5": top5_hit,
+        "top1": bool(retrieved_sections and retrieved_sections[0] in expected),
+        "top3": any(section in expected for section in retrieved_sections[:3]),
+        "top5": any(section in expected for section in retrieved_sections[:5]),
     }
 
 
 def main() -> None:
     if not Path(DEFAULT_INPUT).exists():
-        raise FileNotFoundError(
-            f"Chunk file not found: {DEFAULT_INPUT}"
-        )
+        raise FileNotFoundError(f"Chunk file not found: {DEFAULT_INPUT}")
 
     chunks = load_chunks(DEFAULT_INPUT)
 
@@ -102,7 +79,6 @@ def main() -> None:
     top1 = sum(result["top1"] for result in results)
     top3 = sum(result["top3"] for result in results)
     top5 = sum(result["top5"] for result in results)
-
     total = len(results)
 
     print("=" * 72)
