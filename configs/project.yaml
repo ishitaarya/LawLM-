@@ -1,8 +1,8 @@
 project:
   name: LawSuit LLM
   repository_name: LawLM-
-  version: "0.4.0"
-  phase: 3
+  version: "0.5.0"
+  phase: 7
   phases: 7
   description: "Educational from-scratch legal language model and legal document understanding project"
 
