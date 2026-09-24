@@ -1,11 +1,11 @@
 """
 LawSuit LLM — Phase 6B Legal Chunk Retriever
 
-Retrieves the most relevant legal chunks for a user query using TF-IDF
-and cosine similarity. This first retrieval baseline uses no pretrained
-embedding model.
+Retrieves the most relevant legal chunks for a user query using sparse
+TF-IDF-style retrieval. No pretrained embedding model is used.
 """
 
+import argparse
 import json
 import math
 import re
@@ -23,9 +23,25 @@ STOPWORDS = {
     "with", "under", "this", "these", "those", "does", "do", "can",
 }
 
+LEGAL_EXPANSIONS = {
+    "valid contract": [
+        "valid", "contract", "agreement", "enforceable",
+        "lawful", "consideration", "competent", "consent",
+        "free consent", "competent to contract", "lawful object",
+    ],
+    "essentials of a valid contract": [
+        "valid", "contract", "agreement", "enforceable",
+        "consideration", "competent", "consent",
+        "free consent", "lawful consideration", "lawful object",
+    ],
+    "requirements of a contract": [
+        "contract", "agreement", "enforceable", "consideration",
+        "competent", "consent", "lawful object",
+    ],
+}
+
 
 def tokenize(text: str) -> list[str]:
-    """Tokenize legal text into simple normalized terms."""
     return [
         token
         for token in re.findall(r"[a-zA-Z][a-zA-Z0-9-]*", text.lower())
@@ -33,8 +49,30 @@ def tokenize(text: str) -> list[str]:
     ]
 
 
+def make_terms(text: str) -> list[str]:
+    """Create unigram and adjacent bigram terms."""
+    tokens = tokenize(text)
+    terms = list(tokens)
+    terms.extend(
+        f"{left} {right}"
+        for left, right in zip(tokens, tokens[1:])
+    )
+    return terms
+
+
+def expand_query(query: str) -> list[str]:
+    """Add transparent legal terms for common natural-language queries."""
+    normalized = re.sub(r"\s+", " ", query.lower()).strip()
+    terms = make_terms(query)
+
+    for phrase, expansion in LEGAL_EXPANSIONS.items():
+        if phrase in normalized:
+            terms.extend(expansion)
+
+    return terms
+
+
 def load_chunks(path: Path) -> list[dict]:
-    """Load legal chunks from JSONL."""
     chunks = []
 
     with path.open("r", encoding="utf-8") as file:
@@ -47,12 +85,19 @@ def load_chunks(path: Path) -> list[dict]:
 
 
 def build_index(chunks: list[dict]):
-    """Build an in-memory TF-IDF index."""
+    """Build sparse TF-IDF vectors from chunk text and metadata."""
     document_frequency = Counter()
     term_frequencies = []
 
     for chunk in chunks:
-        counts = Counter(tokenize(chunk["text"]))
+        searchable = " ".join(
+            [
+                chunk.get("text", ""),
+                chunk.get("section_title") or "",
+                str(chunk.get("section_number") or ""),
+            ]
+        )
+        counts = Counter(make_terms(searchable))
         term_frequencies.append(counts)
 
         for term in counts:
@@ -67,9 +112,8 @@ def build_index(chunks: list[dict]):
     vectors = []
 
     for counts in term_frequencies:
-        vector = {}
-
         total_terms = sum(counts.values())
+        vector = {}
 
         if total_terms:
             for term, count in counts.items():
@@ -82,7 +126,6 @@ def build_index(chunks: list[dict]):
 
 def cosine_similarity(query_vector: dict[str, float],
                       document_vector: dict[str, float]) -> float:
-    """Calculate cosine similarity between sparse vectors."""
     if not query_vector or not document_vector:
         return 0.0
 
@@ -91,13 +134,8 @@ def cosine_similarity(query_vector: dict[str, float],
         for term, value in query_vector.items()
     )
 
-    query_norm = math.sqrt(
-        sum(value * value for value in query_vector.values())
-    )
-
-    document_norm = math.sqrt(
-        sum(value * value for value in document_vector.values())
-    )
+    query_norm = math.sqrt(sum(v * v for v in query_vector.values()))
+    document_norm = math.sqrt(sum(v * v for v in document_vector.values()))
 
     if query_norm == 0.0 or document_norm == 0.0:
         return 0.0
@@ -105,25 +143,47 @@ def cosine_similarity(query_vector: dict[str, float],
     return dot_product / (query_norm * document_norm)
 
 
-def search(query: str, chunks: list[dict], idf: dict, vectors: list[dict],
+def search(query: str, chunks: list[dict], idf: dict[str, float],
+           vectors: list[dict[str, float]],
            top_k: int = DEFAULT_TOP_K) -> list[dict]:
-    """Return top-k legal chunks for a query."""
-    query_counts = Counter(tokenize(query))
+    """Return ranked legal chunks."""
+    query_terms = expand_query(query)
+    query_counts = Counter(query_terms)
     total_terms = sum(query_counts.values())
-
     query_vector = {}
 
     if total_terms:
         for term, count in query_counts.items():
             if term in idf:
-                query_vector[term] = (
-                    (count / total_terms) * idf[term]
-                )
+                query_vector[term] = (count / total_terms) * idf[term]
 
+    normalized_query = re.sub(r"\s+", " ", query.lower()).strip()
     results = []
 
     for chunk, vector in zip(chunks, vectors):
         score = cosine_similarity(query_vector, vector)
+
+        text = chunk.get("text", "").lower()
+        title = (chunk.get("section_title") or "").lower()
+
+        if normalized_query and normalized_query in text:
+            score += 0.20
+
+        if normalized_query and normalized_query in title:
+            score += 0.25
+
+        if "valid contract" in normalized_query:
+            if any(
+                phrase in text
+                for phrase in (
+                    "what agreements are contracts",
+                    "lawful consideration and lawful object",
+                    "competent to contract",
+                    "free consent",
+                    "lawful object",
+                )
+            ):
+                score += 0.30
 
         if score > 0:
             result = dict(chunk)
@@ -131,12 +191,10 @@ def search(query: str, chunks: list[dict], idf: dict, vectors: list[dict],
             results.append(result)
 
     results.sort(key=lambda item: item["score"], reverse=True)
-
     return results[:top_k]
 
 
 def print_results(query: str, results: list[dict]) -> None:
-    """Print retrieval results in a readable format."""
     print("=" * 64)
     print("LawSuit LLM — Phase 6B Legal Retrieval")
     print("=" * 64)
@@ -157,10 +215,8 @@ def print_results(query: str, results: list[dict]) -> None:
 
 
 def main() -> None:
-    import argparse
-
     parser = argparse.ArgumentParser(
-        description="Retrieve relevant legal chunks using TF-IDF."
+        description="Retrieve relevant legal chunks using sparse lexical retrieval."
     )
     parser.add_argument(
         "query",
@@ -175,18 +231,14 @@ def main() -> None:
         raise ValueError("--top-k must be at least 1.")
 
     if not DEFAULT_INPUT.exists():
-        raise FileNotFoundError(
-            f"Chunk file not found: {DEFAULT_INPUT}"
-        )
+        raise FileNotFoundError(f"Chunk file not found: {DEFAULT_INPUT}")
 
     chunks = load_chunks(DEFAULT_INPUT)
-
     if not chunks:
         raise RuntimeError("No legal chunks found.")
 
     idf, vectors = build_index(chunks)
     results = search(args.query, chunks, idf, vectors, args.top_k)
-
     print_results(args.query, results)
 
 
