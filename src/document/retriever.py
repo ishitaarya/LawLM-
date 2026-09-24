@@ -235,14 +235,30 @@ def search(query: str, chunks: list[dict], idf: dict[str, float],
             )
             score += min(matched_terms * 0.015, 0.12)
 
-            # Stronger evidence when the query's defining legal phrase
-            # appears verbatim in the retrieved chunk.
-            matched_phrases = sum(
-                1
+            matched_phrases = [
+                phrase
                 for phrase in concept["phrases"]
                 if phrase in text or phrase in title
-            )
-            score += min(matched_phrases * 0.45, 0.90)
+            ]
+
+            # An exact statutory phrase is stronger evidence than generic
+            # words such as "consideration" appearing in another section.
+            score += min(len(matched_phrases) * 0.45, 0.90)
+
+            # For the "without consideration" concept, the statutory
+            # heading is especially distinctive and should dominate sparse
+            # similarity when present.
+            if (
+                concept["sections"] == {"25"}
+                and any(
+                    phrase in text or phrase in title
+                    for phrase in (
+                        "agreement without consideration",
+                        "agreement made without consideration",
+                    )
+                )
+            ):
+                score += 1.50
 
         if score > 0:
             result = dict(chunk)
