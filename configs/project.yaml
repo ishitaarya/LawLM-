@@ -1,8 +1,8 @@
 project:
   name: LawSuit LLM
   repository_name: LawLM-
-  version: "0.3.0"
-  phase: 2
+  version: "0.4.0"
+  phase: 3
   phases: 7
   description: "Educational from-scratch legal language model and legal document understanding project"
 
@@ -16,7 +16,7 @@ principles:
 model:
   architecture: "decoder-only Transformer"
   parameters_target: 10000000
-  vocabulary_size: 8000
+  vocabulary_size: 10000
   context_length: 256
   embedding_dim: 384
   layers: 4
@@ -52,6 +52,18 @@ phase_2_data:
     validation: 0.05
     test: 0.05
     seed: 42
+
+phase_3_tokenizer:
+  algorithm: "BPE"
+  implementation: "SentencePiece trained from project corpus"
+  vocabulary_size: 10000
+  training_split_only: true
+  special_tokens:
+    pad: "<pad>"
+    unk: "<unk>"
+    bos: "<bos>"
+    eos: "<eos>"
+  output_dir: "data/tokenizer"
 
 data_pipeline:
   raw: data/raw
