@@ -87,7 +87,7 @@ class TransformerBlock(nn.Module):
 class LawSuitLLM(nn.Module):
     def __init__(
         self,
-        vocab_size: int = 8000,
+        vocab_size: int = 10000,
         block_size: int = 256,
         embed_dim: int = 384,
         num_heads: int = 6,
