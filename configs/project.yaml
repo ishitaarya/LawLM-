@@ -1,8 +1,8 @@
 project:
   name: LawSuit LLM
   repository_name: LawLM-
-  version: "0.2.0"
-  phase: 1
+  version: "0.3.0"
+  phase: 2
   phases: 7
   description: "Educational from-scratch legal language model and legal document understanding project"
 
@@ -27,10 +27,31 @@ model:
 
 scaling:
   corpus_targets:
-    stage_1: "small experimental corpus"
-    stage_2: "medium legal corpus"
-    stage_3: "large corpus experiments"
+    stage_1: "5,000 legal provisions"
+    stage_2: "25,000 legal provisions"
+    stage_3: "100,000+ legal provisions"
   note: "Corpus size is independent of model parameter count and is processed incrementally."
+
+phase_2_data:
+  dataset_name: "Open India Law"
+  dataset_repository: "Vaquill-AI/open-india-law"
+  snapshot: "v2026.08.1"
+  configuration: "legislation"
+  license: "CC BY 4.0"
+  initial_max_records: 5000
+  jurisdictions:
+    - central
+    - madhya-pradesh
+  source_kind: "Indian primary legislation"
+  provenance_required: true
+  retain_source_url: true
+  retain_source_publisher: true
+  min_text_characters: 200
+  split:
+    train: 0.90
+    validation: 0.05
+    test: 0.05
+    seed: 42
 
 data_pipeline:
   raw: data/raw
