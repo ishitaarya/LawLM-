@@ -97,6 +97,7 @@ def main() -> None:
         optimizer.zero_grad(set_to_none=True)
         running_loss, batches = 0.0, 0
 
+        print(f"Epoch {epoch}/{EPOCHS} - {len(train_loader):,} batches")
         for batch_index, (input_ids, targets) in enumerate(train_loader, start=1):
             _, loss = model(input_ids.to(DEVICE), targets.to(DEVICE))
             if loss is None:
@@ -105,6 +106,11 @@ def main() -> None:
             (loss / GRADIENT_ACCUMULATION_STEPS).backward()
             running_loss += loss.item()
             batches += 1
+
+            if batch_index == 1 or batch_index % 100 == 0 or batch_index == len(train_loader):
+                average_loss = running_loss / batches
+                percent = 100.0 * batch_index / len(train_loader)
+                print(f"  Batch {batch_index:,}/{len(train_loader):,} ({percent:5.1f}%) | loss={loss.item():.4f} | avg={average_loss:.4f}", flush=True)
 
             if batch_index % GRADIENT_ACCUMULATION_STEPS == 0 or batch_index == len(train_loader):
                 torch.nn.utils.clip_grad_norm_(model.parameters(), GRAD_CLIP)
