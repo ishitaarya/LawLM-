@@ -101,8 +101,7 @@ def main() -> None:
     print("=" * 60)
     print("Prompt:")
     print(args.prompt)
-    print("
-Generated text:")
+    print("\nGenerated text:")
     print(output)
     print("=" * 60)
     print("Research/educational output only; not legal advice.")
