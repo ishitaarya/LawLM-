@@ -16,7 +16,9 @@ CHUNK_SIZE = 1200
 CHUNK_OVERLAP = 150
 
 SECTION_PATTERN = re.compile(
-    r"(?m)(?:^|\n)\s*(\d+[A-Z]?)\.\s+(.+?)(?:\s*[—–-]\s*)"
+    r"(?ms)(?:^|\n)\s*(\d+[A-Z]?)\.\s+"
+    r"((?:(?!\n\s*\d+[A-Z]?\.\s+).){1,300}?)"
+    r"(?:\s*[—–-]\s*)"
 )
 
 
