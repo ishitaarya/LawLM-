@@ -28,7 +28,7 @@ model:
 scaling:
   corpus_targets:
     stage_1: "5,000 legal provisions"
-    stage_2: "25,000 legal provisions"
+    stage_2: "25,000 legal provisions (balanced: 12,500 central + 12,500 Madhya Pradesh)"
     stage_3: "100,000+ legal provisions"
   note: "Corpus size is independent of model parameter count and is processed incrementally."
 
@@ -38,7 +38,7 @@ phase_2_data:
   snapshot: "v2026.08.1"
   configuration: "legislation"
   license: "CC BY 4.0"
-  initial_max_records: 5000
+  initial_max_records: 25000
   jurisdictions:
     - central
     - madhya-pradesh
