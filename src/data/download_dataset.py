@@ -15,7 +15,8 @@ from datasets import load_dataset
 BASE_URL = "https://oss-data-in.vaquill.ai"
 VERSION = "v2026.08.1"
 JURISDICTIONS = ("central", "madhya-pradesh")
-MAX_RECORDS = 5000
+TOTAL_RECORDS = 25000
+RECORDS_PER_JURISDICTION = {"central": 12500, "madhya-pradesh": 12500}
 OUTPUT_FILE = Path("data/raw/open_india_law_legislation.jsonl")
 
 
@@ -47,19 +48,22 @@ def main() -> None:
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
 
     count = 0
+    jurisdiction_counts = {jurisdiction: 0 for jurisdiction in JURISDICTIONS}
     seen = set()
 
     print("=" * 64)
     print("LawSuit LLM — Phase 2 Legal Corpus Ingestion")
     print("=" * 64)
-    print(f"Snapshot:    {VERSION}")
-    print(f"Jurisdictions: {', '.join(JURISDICTIONS)}")
-    print(f"Record cap:  {MAX_RECORDS:,}")
-    print(f"Output:      {OUTPUT_FILE}")
+    print(f"Snapshot:       {VERSION}")
+    print(f"Jurisdictions:  {', '.join(JURISDICTIONS)}")
+    print(f"Total target:   {TOTAL_RECORDS:,}")
+    print(f"Per jurisdiction: {RECORDS_PER_JURISDICTION}")
+    print(f"Output:         {OUTPUT_FILE}")
     print()
 
     with OUTPUT_FILE.open("w", encoding="utf-8") as file:
         for jurisdiction in JURISDICTIONS:
+            target = RECORDS_PER_JURISDICTION[jurisdiction]
             url = source_url(jurisdiction)
             print(f"Streaming: {jurisdiction} -> {url}")
 
@@ -71,38 +75,33 @@ def main() -> None:
             )
 
             for row in dataset:
+                if jurisdiction_counts[jurisdiction] >= target:
+                    break
+
                 normalized = normalize_row(row, jurisdiction)
                 text = normalized["text"]
-                key = (
-                    normalized["act_id"],
-                    normalized["section_number"],
-                    text,
-                )
+                key = (normalized["act_id"], normalized["section_number"], text)
 
                 if not text or key in seen:
                     continue
 
                 seen.add(key)
-                file.write(
-                    json.dumps(normalized, ensure_ascii=False) + "\n"
-                )
+                file.write(json.dumps(normalized, ensure_ascii=False) + "\n")
                 count += 1
+                jurisdiction_counts[jurisdiction] += 1
 
-                if count % 500 == 0:
+                if count % 1000 == 0:
                     print(f"  collected: {count:,}")
 
-                if count >= MAX_RECORDS:
-                    break
-
-            if count >= MAX_RECORDS:
-                break
+            print(f"  {jurisdiction}: {jurisdiction_counts[jurisdiction]:,}")
 
     if count == 0:
         raise RuntimeError("No legal provisions were collected.")
 
     print()
     print(f"Collected: {count:,}")
-    print(f"Saved to:  {OUTPUT_FILE}")
+    print(f"By jurisdiction: {jurisdiction_counts}")
+    print(f"Saved to: {OUTPUT_FILE}")
 
 
 if __name__ == "__main__":
