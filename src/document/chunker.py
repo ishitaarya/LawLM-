@@ -14,6 +14,10 @@ DEFAULT_OUTPUT = Path("data/documents/Indian_Contract_Act_1872_chunks.jsonl")
 CHUNK_SIZE = 1200
 CHUNK_OVERLAP = 150
 
+SECTION_PATTERN = re.compile(
+    r"(?m)(?:^|\n)\s*(\d+[A-Z]?)\.\s+([^\n]+)"
+)
+
 
 def clean_text(text: str) -> str:
     """Normalize extracted PDF text."""
@@ -24,13 +28,13 @@ def clean_text(text: str) -> str:
 
 
 def detect_section(text: str) -> tuple[str | None, str | None]:
-    """Try to detect an Indian legal section heading."""
-    pattern = re.compile(r"(?m)^\s*(\d+[A-Z]?)\.\s+(.+?)(?:\n|$)")
-    match = pattern.search(text)
+    """Detect the last legal section heading present in a text fragment."""
+    matches = list(SECTION_PATTERN.finditer(text))
 
-    if not match:
+    if not matches:
         return None, None
 
+    match = matches[-1]
     return match.group(1), match.group(2).strip()
 
 
@@ -71,7 +75,7 @@ def load_pages(path: Path) -> list[dict]:
 
 
 def create_chunks(pages: list[dict]) -> list[dict]:
-    """Create retrieval-friendly chunks from PDF pages."""
+    """Create retrieval-friendly chunks with chunk-level section metadata."""
     chunks = []
     chunk_counter = 1
 
@@ -84,9 +88,15 @@ def create_chunks(pages: list[dict]) -> list[dict]:
         if not text:
             continue
 
-        section_number, section_title = detect_section(text)
+        page_section_number, page_section_title = detect_section(text)
 
         for chunk_text in split_text(text):
+            chunk_section_number, chunk_section_title = detect_section(chunk_text)
+
+            # Prefer a section heading actually present in this chunk.
+            section_number = chunk_section_number or page_section_number
+            section_title = chunk_section_title or page_section_title
+
             chunks.append(
                 {
                     "chunk_id": f"contract_{chunk_counter:05d}",
