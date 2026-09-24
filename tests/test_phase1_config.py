@@ -31,7 +31,7 @@ def test_initial_model_target_is_10m():
 def test_model_configuration_is_present():
     text = CONFIG.read_text(encoding="utf-8")
     for value in (
-        "vocabulary_size: 8000",
+        "vocabulary_size: 10000",
         "context_length: 256",
         "embedding_dim: 384",
         "layers: 4",
