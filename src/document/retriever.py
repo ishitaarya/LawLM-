@@ -1,8 +1,8 @@
 """
 LawSuit LLM — Phase 6B Legal Chunk Retriever
 
-Retrieves the most relevant legal chunks for a user query using sparse
-TF-IDF-style retrieval. No pretrained embedding model is used.
+Retrieves relevant legal chunks using transparent sparse retrieval.
+No pretrained embedding model is used.
 """
 
 import argparse
@@ -23,21 +23,59 @@ STOPWORDS = {
     "with", "under", "this", "these", "those", "does", "do", "can",
 }
 
-LEGAL_EXPANSIONS = {
-    "valid contract": [
-        "valid", "contract", "agreement", "enforceable",
-        "lawful", "consideration", "competent", "consent",
-        "free consent", "competent to contract", "lawful object",
-    ],
-    "essentials of a valid contract": [
-        "valid", "contract", "agreement", "enforceable",
-        "consideration", "competent", "consent",
-        "free consent", "lawful consideration", "lawful object",
-    ],
-    "requirements of a contract": [
-        "contract", "agreement", "enforceable", "consideration",
-        "competent", "consent", "lawful object",
-    ],
+LEGAL_CONCEPTS = {
+    "valid_contract": {
+        "phrases": (
+            "valid contract",
+            "essentials of a valid contract",
+            "requirements of a contract",
+            "makes an agreement a contract",
+            "agreement a contract",
+            "agreement is a contract",
+        ),
+        "terms": (
+            "valid", "contract", "agreement", "enforceable",
+            "consideration", "competent", "consent", "free consent",
+            "lawful consideration", "lawful object",
+        ),
+        "sections": {"10"},
+    },
+    "lawful_consideration": {
+        "phrases": (
+            "lawful consideration",
+            "lawful object",
+            "considerations and objects are lawful",
+            "consideration and object",
+        ),
+        "terms": (
+            "consideration", "object", "lawful", "unlawful",
+            "forbidden", "defeat", "fraud", "injury",
+        ),
+        "sections": {"23"},
+    },
+    "without_consideration": {
+        "phrases": (
+            "without consideration",
+            "agreement without consideration",
+        ),
+        "terms": (
+            "consideration", "writing", "registered", "natural love",
+            "affection", "compensation", "promise",
+        ),
+        "sections": {"25"},
+    },
+    "free_consent": {
+        "phrases": (
+            "free consent",
+            "what is free consent",
+            "meaning of free consent",
+        ),
+        "terms": (
+            "consent", "free consent", "coercion", "undue influence",
+            "fraud", "misrepresentation", "mistake",
+        ),
+        "sections": {"13", "14"},
+    },
 }
 
 
@@ -50,7 +88,6 @@ def tokenize(text: str) -> list[str]:
 
 
 def make_terms(text: str) -> list[str]:
-    """Create unigram and adjacent bigram terms."""
     tokens = tokenize(text)
     terms = list(tokens)
     terms.extend(
@@ -60,14 +97,23 @@ def make_terms(text: str) -> list[str]:
     return terms
 
 
-def expand_query(query: str) -> list[str]:
-    """Add transparent legal terms for common natural-language queries."""
+def detect_concepts(query: str) -> list[dict]:
+    """Identify transparent, predefined legal concepts in a query."""
     normalized = re.sub(r"\s+", " ", query.lower()).strip()
+    concepts = []
+
+    for concept in LEGAL_CONCEPTS.values():
+        if any(phrase in normalized for phrase in concept["phrases"]):
+            concepts.append(concept)
+
+    return concepts
+
+
+def expand_query(query: str) -> list[str]:
     terms = make_terms(query)
 
-    for phrase, expansion in LEGAL_EXPANSIONS.items():
-        if phrase in normalized:
-            terms.extend(expansion)
+    for concept in detect_concepts(query):
+        terms.extend(concept["terms"])
 
     return terms
 
@@ -85,7 +131,6 @@ def load_chunks(path: Path) -> list[dict]:
 
 
 def build_index(chunks: list[dict]):
-    """Build sparse TF-IDF vectors from chunk text and metadata."""
     document_frequency = Counter()
     term_frequencies = []
 
@@ -97,6 +142,7 @@ def build_index(chunks: list[dict]):
                 str(chunk.get("section_number") or ""),
             ]
         )
+
         counts = Counter(make_terms(searchable))
         term_frequencies.append(counts)
 
@@ -104,6 +150,7 @@ def build_index(chunks: list[dict]):
             document_frequency[term] += 1
 
     total_documents = len(chunks)
+
     idf = {
         term: math.log((1 + total_documents) / (1 + frequency)) + 1.0
         for term, frequency in document_frequency.items()
@@ -146,9 +193,10 @@ def cosine_similarity(query_vector: dict[str, float],
 def search(query: str, chunks: list[dict], idf: dict[str, float],
            vectors: list[dict[str, float]],
            top_k: int = DEFAULT_TOP_K) -> list[dict]:
-    """Return ranked legal chunks."""
+    """Return ranked legal chunks with concept-aware boosts."""
     query_terms = expand_query(query)
     query_counts = Counter(query_terms)
+
     total_terms = sum(query_counts.values())
     query_vector = {}
 
@@ -158,6 +206,8 @@ def search(query: str, chunks: list[dict], idf: dict[str, float],
                 query_vector[term] = (count / total_terms) * idf[term]
 
     normalized_query = re.sub(r"\s+", " ", query.lower()).strip()
+    concepts = detect_concepts(query)
+
     results = []
 
     for chunk, vector in zip(chunks, vectors):
@@ -165,25 +215,27 @@ def search(query: str, chunks: list[dict], idf: dict[str, float],
 
         text = chunk.get("text", "").lower()
         title = (chunk.get("section_title") or "").lower()
+        section = str(chunk.get("section_number") or "")
 
+        # Exact query matches.
         if normalized_query and normalized_query in text:
             score += 0.20
 
         if normalized_query and normalized_query in title:
             score += 0.25
 
-        if "valid contract" in normalized_query:
-            if any(
-                phrase in text
-                for phrase in (
-                    "what agreements are contracts",
-                    "lawful consideration and lawful object",
-                    "competent to contract",
-                    "free consent",
-                    "lawful object",
-                )
-            ):
-                score += 0.30
+        # Concept-aware section boost.
+        for concept in concepts:
+            if section in concept["sections"]:
+                score += 0.60
+
+            # Additional transparent evidence boosts.
+            matched_terms = sum(
+                1 for term in concept["terms"]
+                if term in text or term in title
+            )
+
+            score += min(matched_terms * 0.015, 0.12)
 
         if score > 0:
             result = dict(chunk)
@@ -207,8 +259,10 @@ def print_results(query: str, results: list[dict]) -> None:
         print(f"    Chunk:   {result['chunk_id']}")
         print(f"    Page:    {result['page_number']}")
         print(f"    Section: {result.get('section_number') or 'N/A'}")
+
         if result.get("section_title"):
             print(f"    Title:   {result['section_title']}")
+
         preview = re.sub(r"\s+", " ", result["text"])
         print(f"    Text:    {preview[:350]}")
         print()
@@ -216,13 +270,15 @@ def print_results(query: str, results: list[dict]) -> None:
 
 def main() -> None:
     parser = argparse.ArgumentParser(
-        description="Retrieve relevant legal chunks using sparse lexical retrieval."
+        description="Retrieve relevant legal chunks."
     )
+
     parser.add_argument(
         "query",
         nargs="?",
         default="What are the essentials of a valid contract?",
     )
+
     parser.add_argument("--top-k", type=int, default=DEFAULT_TOP_K)
 
     args = parser.parse_args()
@@ -231,14 +287,24 @@ def main() -> None:
         raise ValueError("--top-k must be at least 1.")
 
     if not DEFAULT_INPUT.exists():
-        raise FileNotFoundError(f"Chunk file not found: {DEFAULT_INPUT}")
+        raise FileNotFoundError(
+            f"Chunk file not found: {DEFAULT_INPUT}"
+        )
 
     chunks = load_chunks(DEFAULT_INPUT)
+
     if not chunks:
         raise RuntimeError("No legal chunks found.")
 
     idf, vectors = build_index(chunks)
-    results = search(args.query, chunks, idf, vectors, args.top_k)
+    results = search(
+        args.query,
+        chunks,
+        idf,
+        vectors,
+        args.top_k,
+    )
+
     print_results(args.query, results)
 
 
