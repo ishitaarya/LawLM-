@@ -1,26 +1,27 @@
 profiles:
-  cpu:
-    purpose: "Development, preprocessing, tokenizer training, small model experiments"
-    device: "cpu"
-    large_scale_training: false
+  generic_cpu:
+    device: cpu
+    notes: "Portable CPU baseline"
 
   nvidia_cuda:
-    purpose: "GPU training when CUDA-compatible NVIDIA GPU is available"
-    device: "cuda"
-    large_scale_training: true
+    device: cuda
+    notes: "Use when CUDA is available"
 
   amd_rocm:
-    purpose: "GPU training when supported AMD ROCm environment is available"
-    device: "rocm"
-    large_scale_training: "depends_on_supported_hardware"
+    device: cuda
+    notes: "PyTorch device is typically reported as cuda when ROCm is correctly configured"
 
   apple_mps:
-    purpose: "Development and compatible training on Apple Silicon"
-    device: "mps"
-    large_scale_training: false
+    device: mps
+    notes: "Use when MPS is available"
 
-project_rule:
-  - "The code must remain device-agnostic."
-  - "Do not assume CUDA."
-  - "Do not require a GPU for data preparation."
-  - "Move large training runs to suitable GPU infrastructure when local hardware is insufficient."
+  reference_development:
+    description: "8 GB RAM Ryzen 5-class laptop baseline"
+    preferred_device: cpu
+    initial_model_target: "10M parameters"
+    context_length: 256
+    vocabulary_size: 8000
+    notes:
+      - "Configuration is a development baseline, not a hard maximum."
+      - "Batch size and accumulation are selected from runtime memory measurements."
+      - "Larger experiments can use alternate hardware without changing project code."
