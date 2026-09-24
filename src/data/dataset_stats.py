@@ -1,3 +1,5 @@
+"""Phase 2: corpus statistics."""
+
 import json
 from pathlib import Path
 
@@ -8,10 +10,8 @@ FILES = {
 }
 
 
-def analyze(path):
-    count = 0
-    chars = 0
-    words = 0
+def analyze(path: Path) -> dict:
+    count = chars = words = 0
     min_chars = None
     max_chars = 0
 
@@ -28,31 +28,30 @@ def analyze(path):
             min_chars = length if min_chars is None else min(min_chars, length)
             max_chars = max(max_chars, length)
 
-    return count, chars, words, min_chars or 0, max_chars
+    return {
+        "records": count,
+        "characters": chars,
+        "words": words,
+        "min_chars": min_chars or 0,
+        "max_chars": max_chars,
+        "avg_chars": round(chars / count, 2) if count else 0,
+    }
 
 
-def main():
-    print("=" * 60)
-    print("LawLM - Dataset Statistics")
-    print("=" * 60)
+def main() -> None:
+    print("=" * 64)
+    print("LawSuit LLM — Phase 2 Corpus Statistics")
+    print("=" * 64)
 
-    total = 0
     for name, path in FILES.items():
         if not path.exists():
             print(f"{name}: missing ({path})")
             continue
 
-        count, chars, words, min_chars, max_chars = analyze(path)
-        total += count
-        print(f"{name.title():<12} documents: {count:,}")
-        print(f"{'':<12} characters: {chars:,}")
-        print(f"{'':<12} words:      {words:,}")
-        print(f"{'':<12} min chars:  {min_chars:,}")
-        print(f"{'':<12} max chars:  {max_chars:,}")
-        print()
-
-    print(f"Total documents: {total:,}")
-    print("=" * 60)
+        data = analyze(path)
+        print(f"\n{name.upper()}")
+        for key, value in data.items():
+            print(f"{key:>14}: {value:,}" if isinstance(value, int) else f"{key:>14}: {value}")
 
 
 if __name__ == "__main__":
