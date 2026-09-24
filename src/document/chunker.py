@@ -14,8 +14,12 @@ DEFAULT_OUTPUT = Path("data/documents/Indian_Contract_Act_1872_chunks.jsonl")
 CHUNK_SIZE = 1200
 CHUNK_OVERLAP = 150
 
+# Indian Contract Act headings in the extracted PDF generally follow:
+# "10. What agreements are contracts.—..."
+# Requiring the dash prevents ordinary numbered references in legal prose
+# from being mistaken for section headings.
 SECTION_PATTERN = re.compile(
-    r"(?m)(?:^|\n)\s*(\d+[A-Z]?)\.\s+([^\n]+)"
+    r"(?m)(?:^|\n)\s*(\d+[A-Z]?)\.\s+(.+?)(?:\s*[—–-]\s*)"
 )
 
 
@@ -28,14 +32,14 @@ def clean_text(text: str) -> str:
 
 
 def detect_section(text: str) -> tuple[str | None, str | None]:
-    """Detect the last legal section heading present in a text fragment."""
-    matches = list(SECTION_PATTERN.finditer(text))
+    """Detect the first reliable legal section heading in a text fragment."""
+    match = SECTION_PATTERN.search(text)
 
-    if not matches:
+    if not match:
         return None, None
 
-    match = matches[-1]
-    return match.group(1), match.group(2).strip()
+    title = match.group(2).strip()
+    return match.group(1), title
 
 
 def split_text(text: str) -> list[str]:
@@ -75,9 +79,11 @@ def load_pages(path: Path) -> list[dict]:
 
 
 def create_chunks(pages: list[dict]) -> list[dict]:
-    """Create retrieval-friendly chunks with chunk-level section metadata."""
+    """Create chunks while preserving reliable section metadata."""
     chunks = []
     chunk_counter = 1
+    current_section_number = None
+    current_section_title = None
 
     for page in pages:
         source_file = page.get("source_file", "")
@@ -90,20 +96,24 @@ def create_chunks(pages: list[dict]) -> list[dict]:
 
         page_section_number, page_section_title = detect_section(text)
 
+        if page_section_number:
+            current_section_number = page_section_number
+            current_section_title = page_section_title
+
         for chunk_text in split_text(text):
             chunk_section_number, chunk_section_title = detect_section(chunk_text)
 
-            # Prefer a section heading actually present in this chunk.
-            section_number = chunk_section_number or page_section_number
-            section_title = chunk_section_title or page_section_title
+            if chunk_section_number:
+                current_section_number = chunk_section_number
+                current_section_title = chunk_section_title
 
             chunks.append(
                 {
                     "chunk_id": f"contract_{chunk_counter:05d}",
                     "source_file": source_file,
                     "page_number": page_number,
-                    "section_number": section_number,
-                    "section_title": section_title,
+                    "section_number": current_section_number,
+                    "section_title": current_section_title,
                     "text": chunk_text,
                     "character_count": len(chunk_text),
                 }
