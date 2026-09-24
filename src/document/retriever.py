@@ -69,6 +69,8 @@ LEGAL_CONCEPTS = {
             "free consent",
             "what is free consent",
             "meaning of free consent",
+            "consent freely",
+            "consent freely given",
         ),
         "terms": (
             "consent", "free consent", "coercion", "undue influence",
@@ -98,7 +100,6 @@ def make_terms(text: str) -> list[str]:
 
 
 def detect_concepts(query: str) -> list[dict]:
-    """Identify transparent, predefined legal concepts in a query."""
     normalized = re.sub(r"\s+", " ", query.lower()).strip()
     concepts = []
 
@@ -217,30 +218,38 @@ def search(query: str, chunks: list[dict], idf: dict[str, float],
         title = (chunk.get("section_title") or "").lower()
         section = str(chunk.get("section_number") or "")
 
-        # Exact query matches.
         if normalized_query and normalized_query in text:
             score += 0.20
 
         if normalized_query and normalized_query in title:
             score += 0.25
 
-        # Concept-aware section boost.
         for concept in concepts:
             if section in concept["sections"]:
                 score += 0.60
 
-            # Additional transparent evidence boosts.
             matched_terms = sum(
                 1 for term in concept["terms"]
                 if term in text or term in title
             )
-
             score += min(matched_terms * 0.015, 0.12)
 
         if score > 0:
             result = dict(chunk)
             result["score"] = score
             results.append(result)
+
+    # For free-consent questions, prioritize both definitions:
+    # Section 13 explains consent; Section 14 defines free consent.
+    if any(
+        concept.get("sections") == {"13", "14"}
+        for concept in concepts
+    ):
+        for result in results:
+            if str(result.get("section_number")) == "13":
+                result["score"] += 0.20
+            elif str(result.get("section_number")) == "14":
+                result["score"] += 0.30
 
     results.sort(key=lambda item: item["score"], reverse=True)
     return results[:top_k]
