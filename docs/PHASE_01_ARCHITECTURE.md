@@ -1,59 +1,86 @@
-# LawLM — Phase 1: Project, Hardware & Storage Architecture
+# LawSuit LLM — Phase 1: Foundation
 
 ## Objective
-Phase 1 establishes a portable project architecture before the large legal corpus is collected.
 
-The project supports local CPU development, NVIDIA CUDA systems, supported AMD ROCm systems, Apple Silicon/MPS systems, and later cloud/distributed GPU training.
+Phase 1 establishes the engineering foundation for the seven-phase LawSuit LLM project. It does not train the model yet.
 
-## Scaling strategy
-LawLM starts with a source-corpus target of approximately 200 GB and is designed to scale to:
+## Seven-phase contract
 
-200 GB → 500 GB → 1 TB → 2 TB → 5 TB
+1. Foundation
+2. Legal corpus collection and preparation
+3. Tokenizer from scratch
+4. Decoder-only Transformer from scratch
+5. Training and experiment framework
+6. Generation and legal document understanding
+7. Evaluation, enhancement, and research experiments
 
-The source-corpus size is not the same as the amount of data loaded into RAM or used in a single training run.
+## Project principles
 
-## Storage rule
-For a 200 GB source corpus, storage must account for raw files, extracted text, cleaned data, deduplicated data, structured/chunked data, tokenized shards, train/validation/test shards, temporary files, and checkpoints.
+- Model weights start from random initialization.
+- No pretrained LLM is used as the base model.
+- Core LLM components are implemented explicitly so their behavior can be studied.
+- The project is educational/research-oriented rather than production deployment.
+- Corpus size and model size remain independently configurable.
+- Data is processed incrementally instead of assuming the whole corpus belongs in RAM.
 
-Phase 1 uses 300 GB free space as a safety gate and recommends 500 GB+ free workspace for the first large corpus. A 1 TB workspace is preferred.
+## Initial model target
 
-If local storage is insufficient, process incrementally or use external/cloud storage rather than keeping every representation locally.
+The first model experiment targets approximately 10M parameters.
 
-## Data layers
-Internet/legal sources → data/raw → data/extracted → data/cleaned → data/deduplicated → data/structured → data/tokenized → train/validation/test.
-
-Raw data is never treated as training data automatically.
-
-## Initial model boundary
 | Setting | Initial value |
 |---|---:|
-| Parameters | ~50M |
-| Transformer layers | 8 |
-| Embedding dimension | 512 |
-| Attention heads | 8 |
-| FFN dimension | 2048 |
-| Context length | 512 |
-| Vocabulary | 16K |
+| Architecture | Decoder-only Transformer |
+| Target parameters | ~10M |
+| Vocabulary size | 8,000 |
+| Context length | 256 |
+| Embedding dimension | 384 |
+| Transformer layers | 4 |
+| Attention heads | 6 |
+| FFN dimension | 1,536 |
+| Dropout | 0.1 |
 | Initialization | Random |
-| Pretrained model | No |
 
-These are the starting architecture values, not a claim that a laptop can efficiently train on the entire 200 GB source reservoir.
+The exact parameter count will be measured programmatically once the model implementation is introduced in Phase 4.
 
-## Device policy
-- CPU: ingestion, extraction, OCR orchestration, cleaning, deduplication, metadata processing, tokenizer preparation, and small model tests.
-- NVIDIA CUDA: substantially larger training experiments when a compatible GPU is available.
-- AMD ROCm: only where the exact GPU/OS/PyTorch combination is supported.
-- Apple MPS: development and compatible training experiments.
+## Data layers
 
-## Portable runtime
-Run `python src/utils/system_info.py` to inspect the current operating system, Python version, CPU, disk capacity/free space, and detected PyTorch device.
+`raw → extracted → cleaned → deduplicated → structured → tokenized → train/validation/test`
 
-## Phase 1 completion criteria
-- Scalable configuration exists.
-- Storage boundaries are documented.
-- Hardware profiles are device-agnostic.
-- Runtime inspection works without downloading the corpus.
-- Phase 2 can build on the same structure without redesign.
+Each representation has a separate purpose. Raw legal sources are not automatically considered training-ready.
+
+## Runtime policy
+
+The codebase supports portable device selection:
+
+1. CUDA when available;
+2. MPS when available;
+3. CPU otherwise.
+
+Explicit device overrides remain possible for controlled experiments.
+
+AMD systems are handled through the actual PyTorch backend available on the machine rather than by assuming CUDA from the hardware name.
+
+## Phase 1 deliverables
+
+- Seven-phase project specification.
+- Central project/model configuration.
+- Portable hardware profiles.
+- Standard data directory layout.
+- Existing environment inspection retained.
+- Configuration tests retained and updated as needed.
+- Documentation describing the project contract and exit criteria.
+
+## Phase 1 exit criteria
+
+Phase 1 is complete when:
+
+- project configuration loads successfully;
+- model configuration is centralized;
+- hardware inspection runs;
+- configuration tests pass;
+- repository structure matches the seven-phase plan;
+- README and Phase 1 documentation describe the same architecture.
 
 ## Next phase
-Phase 2 — Legal Data Collection. It will implement resumable, logged ingestion and validate storage, source metadata, document IDs, checksums, retry/resume behavior, and output locations before large downloads.
+
+Phase 2 will implement legal-corpus ingestion, provenance tracking, cleaning, normalization, deduplication, and dataset statistics.
