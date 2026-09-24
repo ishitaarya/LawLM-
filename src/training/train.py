@@ -1,190 +1,139 @@
+"""Phase 5 training loop for LawSuit LLM."""
+
+from __future__ import annotations
+
 import json
-import sys
-import time
+import math
 from pathlib import Path
 
 import torch
-from torch.utils.data import DataLoader, TensorDataset
-from tqdm import tqdm
+from torch.utils.data import DataLoader
 
-# Allow this file to run directly from the project root:
-# python src/training/train.py
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+from src.model.lawlm_model import LawSuitLLM
+from src.training.causal_lm_dataset import build_split_dataset
 
-from src.model.lawlm_model import LawLM
-
-
-TRAIN_FILE = Path("data/splits/train_data.pt")
-VAL_FILE = Path("data/splits/validation_data.pt")
-CHECKPOINT_DIR = Path("checkpoints")
-
-BATCH_SIZE = 8
-EPOCHS = 5
-LEARNING_RATE = 3e-4
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+BLOCK_SIZE = 256
+BATCH_SIZE = 2
+LEARNING_RATE = 1e-4
 WEIGHT_DECAY = 0.01
 GRAD_CLIP = 1.0
-
-DEVICE = torch.device("cpu")
-
-
-def load_split(path):
-    data = torch.load(path, map_location="cpu", weights_only=True)
-    dataset = TensorDataset(data["inputs"], data["targets"])
-    return dataset, data
+EPOCHS = 1
+GRADIENT_ACCUMULATION_STEPS = 4
+CHECKPOINT_DIR = Path("checkpoints")
+LOG_DIR = Path("logs")
 
 
-def evaluate(model, loader):
-    model.eval()
-    total_loss = 0.0
-    total_batches = 0
-
-    with torch.no_grad():
-        for inputs, targets in loader:
-            inputs = inputs.to(DEVICE)
-            targets = targets.to(DEVICE)
-            _, loss = model(inputs, targets)
-            total_loss += loss.item()
-            total_batches += 1
-
-    return total_loss / max(total_batches, 1)
-
-
-def save_checkpoint(model, optimizer, epoch, train_loss, val_loss, path):
-    torch.save(
-        {
-            "model_state_dict": model.state_dict(),
-            "optimizer_state_dict": optimizer.state_dict(),
-            "epoch": epoch,
-            "train_loss": train_loss,
-            "val_loss": val_loss,
-        },
-        path,
-    )
-
-
-def main():
-    if not TRAIN_FILE.exists():
-        raise FileNotFoundError(f"Training data not found: {TRAIN_FILE}")
-
-    if not VAL_FILE.exists():
-        raise FileNotFoundError(f"Validation data not found: {VAL_FILE}")
-
-    CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
-
-    print("=" * 60)
-    print("LawLM - Training")
-    print("=" * 60)
-    print(f"Device:        {DEVICE}")
-    print(f"Batch size:    {BATCH_SIZE}")
-    print(f"Epochs:        {EPOCHS}")
-    print(f"Learning rate: {LEARNING_RATE}")
-    print(f"Weight decay:  {WEIGHT_DECAY}")
-    print()
-
-    train_dataset, train_data = load_split(TRAIN_FILE)
-    val_dataset, _ = load_split(VAL_FILE)
-
-    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True)
-    val_loader = DataLoader(val_dataset, batch_size=BATCH_SIZE, shuffle=False)
-
-    model = LawLM(
-        vocab_size=train_data["vocab_size"],
-        block_size=train_data["block_size"],
+def build_model() -> LawSuitLLM:
+    return LawSuitLLM(
+        vocab_size=10_000, block_size=BLOCK_SIZE, embed_dim=384,
+        num_heads=6, num_layers=4, ff_hidden_dim=1536, dropout=0.1,
     ).to(DEVICE)
 
-    optimizer = torch.optim.AdamW(
-        model.parameters(),
-        lr=LEARNING_RATE,
-        weight_decay=WEIGHT_DECAY,
-    )
 
-    best_val_loss = float("inf")
-    history = []
+def evaluate(model: LawSuitLLM, loader: DataLoader) -> float:
+    model.eval()
+    total_loss, batches = 0.0, 0
+    with torch.no_grad():
+        for input_ids, targets in loader:
+            _, loss = model(input_ids.to(DEVICE), targets.to(DEVICE))
+            if loss is None:
+                raise RuntimeError("Validation loss was not produced.")
+            total_loss += loss.item()
+            batches += 1
+    return total_loss / max(1, batches)
 
-    print(f"Training sequences:   {len(train_dataset):,}")
-    print(f"Validation sequences: {len(val_dataset):,}")
-    print()
 
+def save_checkpoint(model, optimizer, epoch, train_loss, validation_loss) -> Path:
+    CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
+    path = CHECKPOINT_DIR / f"lawsuit_llm_epoch_{epoch:02d}.pt"
+    torch.save({
+        "epoch": epoch,
+        "model_state_dict": model.state_dict(),
+        "optimizer_state_dict": optimizer.state_dict(),
+        "train_loss": train_loss,
+        "validation_loss": validation_loss,
+        "config": {
+            "vocab_size": 10_000, "block_size": BLOCK_SIZE, "embed_dim": 384,
+            "num_heads": 6, "num_layers": 4, "ff_hidden_dim": 1536,
+        },
+    }, path)
+    return path
+
+
+def main() -> None:
+    torch.manual_seed(42)
+
+    train_dataset = build_split_dataset("train", block_size=BLOCK_SIZE)
+    validation_dataset = build_split_dataset("validation", block_size=BLOCK_SIZE)
+
+    train_loader = DataLoader(train_dataset, batch_size=BATCH_SIZE, shuffle=True, num_workers=0)
+    validation_loader = DataLoader(validation_dataset, batch_size=BATCH_SIZE, shuffle=False, num_workers=0)
+
+    model = build_model()
+    optimizer = torch.optim.AdamW(model.parameters(), lr=LEARNING_RATE, weight_decay=WEIGHT_DECAY)
+
+    total_steps = max(1, math.ceil(len(train_loader) / GRADIENT_ACCUMULATION_STEPS) * EPOCHS)
+    scheduler = torch.optim.lr_scheduler.CosineAnnealingLR(optimizer, T_max=total_steps)
+
+    LOG_DIR.mkdir(parents=True, exist_ok=True)
+    history_path = LOG_DIR / "training_history.jsonl"
+
+    print("=" * 60)
+    print("LawSuit LLM - Phase 5 Training")
+    print("=" * 60)
+    print(f"Device: {DEVICE}")
+    print(f"Parameters: {model.parameter_count():,}")
+    print(f"Train samples: {len(train_dataset):,}")
+    print(f"Validation samples: {len(validation_dataset):,}")
+    print(f"Batch size: {BATCH_SIZE}")
+    print(f"Gradient accumulation: {GRADIENT_ACCUMULATION_STEPS}")
+    print(f"Epochs: {EPOCHS}")
+    print("=" * 60)
+
+    global_step = 0
     for epoch in range(1, EPOCHS + 1):
         model.train()
-        start_time = time.time()
-        total_loss = 0.0
-        total_batches = 0
+        optimizer.zero_grad(set_to_none=True)
+        running_loss, batches = 0.0, 0
 
-        progress = tqdm(train_loader, desc=f"Epoch {epoch}/{EPOCHS}")
+        for batch_index, (input_ids, targets) in enumerate(train_loader, start=1):
+            _, loss = model(input_ids.to(DEVICE), targets.to(DEVICE))
+            if loss is None:
+                raise RuntimeError("Training loss was not produced.")
 
-        for inputs, targets in progress:
-            inputs = inputs.to(DEVICE)
-            targets = targets.to(DEVICE)
+            (loss / GRADIENT_ACCUMULATION_STEPS).backward()
+            running_loss += loss.item()
+            batches += 1
 
-            optimizer.zero_grad(set_to_none=True)
-            _, loss = model(inputs, targets)
-            loss.backward()
+            if batch_index % GRADIENT_ACCUMULATION_STEPS == 0 or batch_index == len(train_loader):
+                torch.nn.utils.clip_grad_norm_(model.parameters(), GRAD_CLIP)
+                optimizer.step()
+                optimizer.zero_grad(set_to_none=True)
+                scheduler.step()
+                global_step += 1
 
-            torch.nn.utils.clip_grad_norm_(model.parameters(), GRAD_CLIP)
-            optimizer.step()
+        train_loss = running_loss / max(1, batches)
+        validation_loss = evaluate(model, validation_loader)
+        checkpoint = save_checkpoint(model, optimizer, epoch, train_loss, validation_loss)
 
-            total_loss += loss.item()
-            total_batches += 1
-            progress.set_postfix(loss=f"{loss.item():.4f}")
+        record = {
+            "epoch": epoch, "step": global_step, "train_loss": train_loss,
+            "validation_loss": validation_loss,
+            "learning_rate": scheduler.get_last_lr()[0],
+            "checkpoint": str(checkpoint),
+        }
+        with history_path.open("a", encoding="utf-8") as handle:
+            handle.write(json.dumps(record) + "\\n")
 
-        train_loss = total_loss / max(total_batches, 1)
-        val_loss = evaluate(model, val_loader)
-        elapsed = time.time() - start_time
+        print(f"Epoch {epoch}:")
+        print(f"  Train loss: {train_loss:.4f}")
+        print(f"  Validation loss: {validation_loss:.4f}")
+        print(f"  Learning rate: {scheduler.get_last_lr()[0]:.8f}")
+        print(f"  Checkpoint: {checkpoint}")
 
-        history.append(
-            {
-                "epoch": epoch,
-                "train_loss": train_loss,
-                "val_loss": val_loss,
-                "time_seconds": elapsed,
-            }
-        )
-
-        print()
-        print(
-            f"Epoch {epoch}: "
-            f"train_loss={train_loss:.4f}, "
-            f"val_loss={val_loss:.4f}, "
-            f"time={elapsed:.1f}s"
-        )
-
-        save_checkpoint(
-            model,
-            optimizer,
-            epoch,
-            train_loss,
-            val_loss,
-            CHECKPOINT_DIR / "latest.pt",
-        )
-
-        if val_loss < best_val_loss:
-            best_val_loss = val_loss
-            save_checkpoint(
-                model,
-                optimizer,
-                epoch,
-                train_loss,
-                val_loss,
-                CHECKPOINT_DIR / "best.pt",
-            )
-            print("New best model saved: checkpoints/best.pt")
-
-    history_path = Path("experiments/training_history.json")
-    history_path.parent.mkdir(parents=True, exist_ok=True)
-
-    with history_path.open("w", encoding="utf-8") as file:
-        json.dump(history, file, indent=2)
-
-    print()
     print("=" * 60)
-    print("Training completed!")
-    print(f"Best validation loss: {best_val_loss:.4f}")
-    print(f"Latest checkpoint:   {CHECKPOINT_DIR / 'latest.pt'}")
-    print(f"Best checkpoint:     {CHECKPOINT_DIR / 'best.pt'}")
-    print(f"History:             {history_path}")
+    print("Phase 5 training run completed.")
     print("=" * 60)
 
 
