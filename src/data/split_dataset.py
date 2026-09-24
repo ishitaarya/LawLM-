@@ -1,22 +1,29 @@
+"""Phase 2: deterministic train/validation/test split."""
+
+from __future__ import annotations
+
 import json
 import random
 from pathlib import Path
 
-INPUT_FILE = Path("data/processed/legal_corpus.jsonl")
+INPUT_FILE = Path("data/cleaned/legal_corpus.jsonl")
 OUTPUT_DIR = Path("data/splits")
-
 SEED = 42
 TRAIN_RATIO = 0.90
 VAL_RATIO = 0.05
 
 
-def main():
+def main() -> None:
     if not INPUT_FILE.exists():
         raise FileNotFoundError(f"Clean dataset not found: {INPUT_FILE}")
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
+    rows = [
+        json.loads(line)
+        for line in INPUT_FILE.open("r", encoding="utf-8")
+        if line.strip()
+    ]
 
-    rows = [json.loads(line) for line in INPUT_FILE.open("r", encoding="utf-8") if line.strip()]
     random.Random(SEED).shuffle(rows)
 
     n = len(rows)
@@ -35,15 +42,14 @@ def main():
             for row in data:
                 file.write(json.dumps(row, ensure_ascii=False) + "\n")
 
-    print("=" * 60)
-    print("LawLM - Dataset Split")
-    print("=" * 60)
-    print(f"Total:      {n}")
-    print(f"Train:      {len(splits['train'])}")
-    print(f"Validation: {len(splits['validation'])}")
-    print(f"Test:       {len(splits['test'])}")
+    print("=" * 64)
+    print("LawSuit LLM — Phase 2 Dataset Split")
+    print("=" * 64)
+    print(f"Total:      {n:,}")
+    print(f"Train:      {len(splits['train']):,}")
+    print(f"Validation: {len(splits['validation']):,}")
+    print(f"Test:       {len(splits['test']):,}")
     print(f"Seed:       {SEED}")
-    print("=" * 60)
 
 
 if __name__ == "__main__":
