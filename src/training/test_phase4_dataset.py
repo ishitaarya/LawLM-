@@ -17,7 +17,7 @@ def test_dataset_builds_from_encoded_split() -> None:
     input_ids, targets = dataset[0]
     assert input_ids.shape == targets.shape
     assert input_ids.shape[0] == 256
-    assert input_ids.dtype.name if hasattr(input_ids.dtype, "name") else True
+    assert input_ids.dtype == targets.dtype
 
 
 def test_causal_shift_is_correct() -> None:
