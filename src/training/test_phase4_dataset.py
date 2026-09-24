@@ -30,3 +30,17 @@ def test_causal_shift_is_correct() -> None:
 
     assert input_ids.shape == targets.shape
     assert targets[0].item() == input_ids[1].item()
+
+
+if __name__ == "__main__":
+    test_dataset_builds_from_encoded_split()
+    test_causal_shift_is_correct()
+    print("=" * 60)
+    print("LawSuit LLM - Phase 4 Dataset Test")
+    print("=" * 60)
+    print("Dataset: data/tokenized/train.jsonl")
+    print("Block size: 256")
+    print("Causal shift: OK")
+    print("Dataset loading: OK")
+    print("Phase 4 dataset test passed!")
+    print("=" * 60)
