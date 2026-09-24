@@ -1,84 +1,90 @@
+"""Phase 2: clean, normalize, deduplicate and preserve legal provenance."""
+
+from __future__ import annotations
+
+import hashlib
 import json
 import re
 from pathlib import Path
 
 INPUT_FILE = Path("data/raw/open_india_law_legislation.jsonl")
-OUTPUT_FILE = Path("data/processed/legal_corpus.jsonl")
+OUTPUT_FILE = Path("data/cleaned/legal_corpus.jsonl")
 MIN_CHARS = 200
 
 
-def clean_text(text):
+def clean_text(text: str) -> str:
     text = str(text or "")
+    text = text.replace("\u00ad", "")
     text = re.sub(r"\s+", " ", text)
     text = re.sub(r"\s+([,.;:!?])", r"\1", text)
     return text.strip()
 
 
-def main():
+def main() -> None:
     if not INPUT_FILE.exists():
         raise FileNotFoundError(f"Input dataset not found: {INPUT_FILE}")
 
     OUTPUT_FILE.parent.mkdir(parents=True, exist_ok=True)
 
-    seen_ids = set()
-    seen_text = set()
-    total = kept = duplicate_id = duplicate_text = too_short = 0
+    seen_ids: set[str] = set()
+    seen_hashes: set[str] = set()
+    stats = {
+        "input": 0,
+        "kept": 0,
+        "duplicate_id": 0,
+        "duplicate_text": 0,
+        "too_short": 0,
+        "missing_source": 0,
+    }
 
-    with INPUT_FILE.open("r", encoding="utf-8") as src, OUTPUT_FILE.open("w", encoding="utf-8") as dst:
+    with INPUT_FILE.open("r", encoding="utf-8") as src, OUTPUT_FILE.open(
+        "w", encoding="utf-8"
+    ) as dst:
         for line in src:
             if not line.strip():
                 continue
 
-            total += 1
+            stats["input"] += 1
             row = json.loads(line)
-
-            doc_id = str(row.get("act_id", "")).strip()
-            section_number = str(row.get("section_number", "")).strip()
             text = clean_text(row.get("text", ""))
 
             if len(text) < MIN_CHARS:
-                too_short += 1
+                stats["too_short"] += 1
                 continue
 
-            unique_id = f"{doc_id}:{section_number}"
+            act_id = str(row.get("act_id", "")).strip()
+            section = str(row.get("section_number", "")).strip()
+            unique_id = f"{act_id}:{section}"
+
             if unique_id in seen_ids:
-                duplicate_id += 1
+                stats["duplicate_id"] += 1
                 continue
 
-            if text in seen_text:
-                duplicate_text += 1
+            text_hash = hashlib.sha256(text.encode("utf-8")).hexdigest()
+            if text_hash in seen_hashes:
+                stats["duplicate_text"] += 1
                 continue
+
+            source_url = str(row.get("source_url", "")).strip()
+            if not source_url:
+                stats["missing_source"] += 1
+
+            cleaned = dict(row)
+            cleaned["text"] = text
+            cleaned["text_sha256"] = text_hash
 
             seen_ids.add(unique_id)
-            seen_text.add(text)
+            seen_hashes.add(text_hash)
 
-            clean_row = {
-                "act_id": doc_id,
-                "title": str(row.get("title", "")).strip(),
-                "section_number": section_number,
-                "section_title": str(row.get("section_title", "")).strip(),
-                "state": str(row.get("state", "")).strip(),
-                "year": row.get("year"),
-                "act_status": str(row.get("act_status", "")).strip(),
-                "section_status": str(row.get("section_status", "")).strip(),
-                "source_url": str(row.get("source_url", "")).strip(),
-                "source_publisher": str(row.get("source_publisher", "")).strip(),
-                "text": text,
-            }
+            dst.write(json.dumps(cleaned, ensure_ascii=False) + "\n")
+            stats["kept"] += 1
 
-            dst.write(json.dumps(clean_row, ensure_ascii=False) + "\n")
-            kept += 1
-
-    print("=" * 60)
-    print("LawLM - Open India Law Cleaning")
-    print("=" * 60)
-    print(f"Input provisions:     {total}")
-    print(f"Kept provisions:      {kept}")
-    print(f"Duplicate IDs:        {duplicate_id}")
-    print(f"Duplicate texts:      {duplicate_text}")
-    print(f"Too short:            {too_short}")
-    print(f"Output:               {OUTPUT_FILE}")
-    print("=" * 60)
+    print("=" * 64)
+    print("LawSuit LLM — Phase 2 Cleaning")
+    print("=" * 64)
+    for key, value in stats.items():
+        print(f"{key:>18}: {value:,}")
+    print(f"Output: {OUTPUT_FILE}")
 
 
 if __name__ == "__main__":
