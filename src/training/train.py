@@ -18,7 +18,7 @@ BATCH_SIZE = 2
 LEARNING_RATE = 1e-4
 WEIGHT_DECAY = 0.01
 GRAD_CLIP = 1.0
-EPOCHS = 1
+EPOCHS = 3
 GRADIENT_ACCUMULATION_STEPS = 4
 CHECKPOINT_DIR = Path("checkpoints")
 LOG_DIR = Path("logs")
@@ -29,6 +29,10 @@ def build_model() -> LawSuitLLM:
         vocab_size=10_000, block_size=BLOCK_SIZE, embed_dim=384,
         num_heads=6, num_layers=4, ff_hidden_dim=1536, dropout=0.1,
     ).to(DEVICE)
+
+
+def perplexity(loss: float) -> float:
+    return math.exp(min(loss, 20.0))
 
 
 def evaluate(model: LawSuitLLM, loader: DataLoader) -> float:
@@ -127,6 +131,8 @@ def main() -> None:
             "epoch": epoch, "step": global_step, "train_loss": train_loss,
             "validation_loss": validation_loss,
             "learning_rate": scheduler.get_last_lr()[0],
+            "train_perplexity": perplexity(train_loss),
+            "validation_perplexity": perplexity(validation_loss),
             "checkpoint": str(checkpoint),
         }
         with history_path.open("a", encoding="utf-8") as handle:
@@ -136,6 +142,8 @@ def main() -> None:
         print(f"  Train loss: {train_loss:.4f}")
         print(f"  Validation loss: {validation_loss:.4f}")
         print(f"  Learning rate: {scheduler.get_last_lr()[0]:.8f}")
+        print(f"  Train perplexity: {perplexity(train_loss):.2f}")
+        print(f"  Validation perplexity: {perplexity(validation_loss):.2f}")
         print(f"  Checkpoint: {checkpoint}")
 
     print("=" * 60)
