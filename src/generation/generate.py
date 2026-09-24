@@ -1,105 +1,74 @@
-import sys
+"""Phase 6 generation: load the trained LawSuit LLM and generate legal-style text."""
+
+from __future__ import annotations
+
+import argparse
 from pathlib import Path
 
 import sentencepiece as spm
 import torch
 
-PROJECT_ROOT = Path(__file__).resolve().parents[2]
-if str(PROJECT_ROOT) not in sys.path:
-    sys.path.insert(0, str(PROJECT_ROOT))
+from src.model.lawlm_model import LawSuitLLM
 
-from src.model.lawlm_model import LawLM
-
-
-MODEL_FILE = Path("tokenizer/lawlm.model")
-CHECKPOINT_FILE = Path("checkpoints/best.pt")
-
-TEMPERATURE = 0.8
-TOP_K = 40
-MAX_NEW_TOKENS = 80
+CHECKPOINT = Path("checkpoints/lawsuit_llm_epoch_03.pt")
+TOKENIZER = Path("data/tokenizer/lawsuit_bpe.model")
+DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
 
-def load_model():
-    checkpoint = torch.load(
-        CHECKPOINT_FILE,
-        map_location="cpu",
-        weights_only=True,
-    )
+def load_model(checkpoint: Path) -> LawSuitLLM:
+    if not checkpoint.exists():
+        raise FileNotFoundError(f"Checkpoint not found: {checkpoint}")
 
-    model = LawLM()
-    model.load_state_dict(checkpoint["model_state_dict"])
+    model = LawSuitLLM(vocab_size=10_000, block_size=256, embed_dim=384,
+                       num_heads=6, num_layers=4, ff_hidden_dim=1536, dropout=0.1)
+    state = torch.load(checkpoint, map_location=DEVICE, weights_only=True)
+    state_dict = state["model_state_dict"] if "model_state_dict" in state else state
+    model.load_state_dict(state_dict)
+    model.to(DEVICE)
     model.eval()
-
     return model
 
 
-def generate_text(model, tokenizer, prompt):
-    prompt_ids = tokenizer.encode(prompt, out_type=int)
-
-    if not prompt_ids:
+def generate_text(model, tokenizer, prompt, max_new_tokens=80, temperature=0.8, top_k=40):
+    ids = tokenizer.encode(prompt, out_type=int)
+    if not ids:
         raise ValueError("Prompt produced no tokens.")
-
-    input_ids = torch.tensor(
-        [prompt_ids],
-        dtype=torch.long,
-    )
-
-    generated_ids = model.generate(
-        input_ids,
-        max_new_tokens=MAX_NEW_TOKENS,
-        temperature=TEMPERATURE,
-        top_k=TOP_K,
-    )
-
-    text = tokenizer.decode(generated_ids[0].tolist())
-
-    return text
+    input_ids = torch.tensor([ids], dtype=torch.long, device=DEVICE)
+    generated = model.generate(input_ids, max_new_tokens=max_new_tokens,
+                               temperature=temperature, top_k=top_k)
+    return tokenizer.decode(generated[0].tolist())
 
 
 def main():
-    if not MODEL_FILE.exists():
-        raise FileNotFoundError(
-            f"Tokenizer model not found: {MODEL_FILE}"
-        )
+    parser = argparse.ArgumentParser(description="Generate text with LawSuit LLM")
+    parser.add_argument("--prompt", default="The court may grant relief under the applicable law because")
+    parser.add_argument("--max-new-tokens", type=int, default=80)
+    parser.add_argument("--temperature", type=float, default=0.8)
+    parser.add_argument("--top-k", type=int, default=40)
+    parser.add_argument("--checkpoint", type=Path, default=CHECKPOINT)
+    args = parser.parse_args()
 
-    if not CHECKPOINT_FILE.exists():
-        raise FileNotFoundError(
-            f"Model checkpoint not found: {CHECKPOINT_FILE}"
-        )
+    if not TOKENIZER.exists():
+        raise FileNotFoundError(f"Tokenizer not found: {TOKENIZER}")
 
-    tokenizer = spm.SentencePieceProcessor(
-        model_file=str(MODEL_FILE)
-    )
-
-    model = load_model()
-
-    prompts = [
-        "The court may",
-        "Under the applicable law,",
-        "A person who commits an offence",
-    ]
+    tokenizer = spm.SentencePieceProcessor(model_file=str(TOKENIZER))
+    model = load_model(args.checkpoint)
+    output = generate_text(model, tokenizer, args.prompt, args.max_new_tokens,
+                           args.temperature, args.top_k)
 
     print("=" * 60)
-    print("LawLM - Legal Text Generation")
+    print("LawSuit LLM - Phase 6 Text Generation")
     print("=" * 60)
-    print(f"Temperature:    {TEMPERATURE}")
-    print(f"Top-k:          {TOP_K}")
-    print(f"Max new tokens: {MAX_NEW_TOKENS}")
-    print()
-
-    for prompt in prompts:
-        print("-" * 60)
-        print(f"Prompt: {prompt}")
-        print()
-        print("Generated:")
-        print(generate_text(model, tokenizer, prompt))
-        print()
-
+    print(f"Device: {DEVICE}")
+    print(f"Parameters: {model.parameter_count():,}")
+    print(f"Checkpoint: {args.checkpoint}")
     print("=" * 60)
-    print("Generation completed.")
-    print("Disclaimer: Generated text is for research and")
-    print("educational purposes only and is NOT legal advice.")
+    print("Prompt:")
+    print(args.prompt)
+    print("\nGenerated text:")
+    print(output)
     print("=" * 60)
+    print("Research/educational output only; not legal advice.")
 
 
 if __name__ == "__main__":
