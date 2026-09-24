@@ -1,160 +1,161 @@
-# LawLM — Legal Language Model from Scratch
+# LawSuit LLM — Legal Language Model From Scratch
 
-LawLM is a B.Tech AI/ML project that builds a small decoder-only Transformer language model for legal-text generation.
+LawSuit LLM is an educational B.Tech AI/ML project that builds a small legal language model from randomly initialized weights and progressively adds legal document understanding.
 
-## Core project principle
+The repository name remains `LawLM-`, but the project direction is now **LawSuit LLM**.
 
-LawLM is trained from randomly initialized weights on a legal dataset. It does not fine-tune GPT, Llama, Mistral, Qwen, or any other pretrained LLM.
+## Project goal
 
-## Dataset
+LawSuit LLM explores how an LLM works under the hood instead of starting with a pretrained model.
 
-The project uses the Open India Law legislation subset published by Vaquill AI. The corpus is normalized from Indian primary-law sources and the legislation portion is sourced from India Code. Legislation records include provenance such as title, section, status, jurisdiction, and source URL.
+The long-term system is intended to help lawyers and non-lawyers understand legal language and legal documents by combining:
 
-For the student-scale prototype, LawLM streams and keeps 5,000 legislation provisions locally instead of downloading the entire corpus.
+- a from-scratch decoder-only Transformer;
+- a legal text corpus;
+- our own tokenizer;
+- next-token prediction training;
+- PDF/document extraction;
+- legal document analysis;
+- retrieval/evidence-aware processing;
+- evaluation and experiments.
 
-- Dataset: vaquill/open-india-law
-- Configuration: legislation
-- Dataset license: CC BY 4.0
-- Scripts in this repository: Apache-2.0
-- Source/provenance: official government legal sources as documented by Open India Law
-- Dataset snapshot: use the current snapshot available when the data is downloaded
-- Attribution: Vaquill AI / Open India Law, with required CC BY 4.0 attribution
+This is a learning and research project, not a production legal-advice system.
 
-Source: https://github.com/Vaquill-AI/open-india-law
+## Core principles
 
-The dataset is a point-in-time archive. Legal content changes over time, so generated output must be verified against the current official source before any real-world use.
+- **From scratch:** model weights start from random initialization.
+- **No pretrained LLM:** no GPT, Llama, Mistral, Qwen, etc. are used as the base model.
+- **Understand the internals:** attention, embeddings, masking, transformer blocks, loss, backpropagation, optimization, and generation are implemented and studied explicitly.
+- **Progressive engineering:** foundation first, model second, legal document capabilities later.
+- **Device-aware:** code is portable across CPU, CUDA, ROCm, and MPS where the relevant PyTorch stack is available.
+- **Scalable experiments:** corpus size and model parameter count are configurable independently.
 
-## Planned pipeline
+## Seven phases
 
-1. Environment setup
-2. Legal dataset preparation
-3. Train our own tokenizer
-4. Create next-token prediction datasets
-5. Implement a decoder-only Transformer from scratch
-6. Train with PyTorch
-7. Generate legal-style text
-8. Evaluate loss and perplexity
-9. Run model/data-size experiments
-10. Optional API layer
-11. Frontend added only after the LLM is complete
+| Phase | Focus | Main outcome |
+|---|---|---|
+| 1 | Foundation | Repository, configuration, environment, tests, hardware inspection |
+| 2 | Legal corpus | Collection, cleaning, normalization, deduplication, splitting, statistics |
+| 3 | Tokenizer | Train and inspect our own BPE-style tokenizer |
+| 4 | Transformer | Implement the decoder-only Transformer from scratch |
+| 5 | Training | Next-token prediction, checkpoints, logging, validation, experiments |
+| 6 | Generation + documents | Text generation and legal PDF/document understanding |
+| 7 | Enhancement + evaluation | Benchmarks, experiments, evidence-aware workflows, research improvements |
 
-## Current status
+## Initial model experiment
 
-### Phase 1 — Environment Setup
+The first substantive model target is approximately **10 million parameters**.
 
-- Python 3.13
-- PyTorch 2.14.0 CPU build
-- AMD Radeon graphics detected; CUDA is unavailable
-- Virtual environment: .venv
-- Basic ML/data dependencies configured
-- Project directory structure created
-- Environment test available at tests/test_environment.py
+Current configuration target:
 
-### Phase 2 — Dataset Pipeline
+- Architecture: decoder-only Transformer
+- Target parameters: ~10M
+- Vocabulary: 8,000
+- Context length: 256 tokens
+- Embedding dimension: 384
+- Transformer layers: 4
+- Attention heads: 6
+- FFN dimension: 1,536
+- Dropout: 0.1
+- Initialization: random
 
-The repository now contains a one-command dataset pipeline:
+These are configuration values for the initial experiment. They are deliberately kept editable so later experiments can change one variable at a time.
 
-1. Stream Open India Law legislation
-2. Keep 5,000 provisions
-3. Clean and normalize text
-4. Remove duplicate provisions/text
-5. Create 90/5/5 train/validation/test splits
-6. Print dataset statistics
+## Repository layout
 
-The raw dataset is intentionally excluded from Git via .gitignore.
-
-## Project structure
-
-LawLM/
+```
+LawLM-/
+├── configs/
+│   ├── project.yaml
+│   ├── project_config.json
+│   └── hardware_profiles.yaml
+│
 ├── data/
 │   ├── raw/
-│   ├── processed/
-│   └── splits/
+│   ├── extracted/
+│   ├── cleaned/
+│   ├── deduplicated/
+│   ├── structured/
+│   ├── tokenized/
+│   ├── train/
+│   ├── validation/
+│   └── test/
+│
 ├── src/
 │   ├── data/
-│   │   ├── download_dataset.py
-│   │   ├── clean_dataset.py
-│   │   ├── split_dataset.py
-│   │   ├── dataset_stats.py
-│   │   └── run_pipeline.py
 │   ├── tokenizer/
 │   ├── model/
 │   ├── training/
 │   ├── generation/
-│   └── evaluation/
+│   ├── evaluation/
+│   └── utils/
+│
 ├── tokenizer/
 ├── checkpoints/
 ├── experiments/
 ├── graphs/
-├── tests/
-├── configs/
 ├── notebooks/
-├── .gitignore
+├── docs/
+├── tests/
 ├── requirements.txt
 └── README.md
+```
 
-## Important limitation
+## Phase 1 status
 
-LawLM is an educational language-model project. Generated text must not be treated as legal advice or as a substitute for a qualified legal professional.
+Phase 1 is the current restart point.
+
+It establishes:
+
+1. a seven-phase project contract;
+2. a configurable ~10M model target;
+3. device-independent hardware profiles;
+4. a scalable data layout;
+5. testable project configuration;
+6. a foundation for all later model and training code.
+
+The next implementation step is to make the Phase 1 configuration and environment checks fully consistent with this new specification.
+
+## Legal data
+
+The repository may use public legal datasets with explicit provenance and licensing. Any external corpus must retain its source, version/snapshot information, license requirements, and provenance metadata.
+
+Legal material can change over time. A trained model or generated response must therefore not be treated as a current statement of law without checking the relevant authoritative source.
+
+## Development philosophy
+
+Every major component should be understandable independently:
+
+```
+Text
+  ↓
+Tokenizer
+  ↓
+Token IDs
+  ↓
+Embeddings + Positions
+  ↓
+Masked Self-Attention
+  ↓
+Feed Forward Network
+  ↓
+Residual + LayerNorm
+  ↓
+Transformer Blocks
+  ↓
+Logits
+  ↓
+Cross-Entropy Loss
+  ↓
+Backpropagation
+  ↓
+Parameter Update
+  ↓
+Next Token
+```
+
+The project will build this pipeline incrementally and test each stage before moving on.
 
 ## License
 
-The LawLM source code is licensed separately from the external dataset. The Open India Law dataset remains subject to its stated CC BY 4.0 terms and attribution requirements.
-
-## Phase 1 — Project, Hardware & Storage Architecture
-
-Phase 1 now defines the scalable architecture for the LawLM project.
-
-### Scaling target
-
-200 GB → 500 GB → 1 TB → 2 TB → 5 TB
-
-The corpus target refers to the source reservoir. It is not loaded into RAM or automatically used as one training run.
-
-### Initial from-scratch model
-
-- ~50M parameters
-- 8 Transformer layers
-- 512 embedding dimension
-- 8 attention heads
-- 2048 FFN dimension
-- 512-token context
-- 16K vocabulary
-- Random initialization
-- No pretrained LLM
-
-### Device-agnostic design
-
-The project supports:
-
-- CPU development and preprocessing
-- NVIDIA CUDA training where supported
-- AMD ROCm where the exact hardware/software stack is supported
-- Apple MPS where supported
-- Later cloud/distributed GPU training
-
-### Storage architecture
-
-The data pipeline is separated into:
-
-`data/raw` → `data/extracted` → `data/cleaned` → `data/deduplicated` → `data/structured` → `data/tokenized` → train/validation/test
-
-For a 200 GB source corpus, Phase 1 recommends at least 500 GB of free workspace and prefers approximately 1 TB. The pipeline is designed to process data incrementally when local storage is insufficient.
-
-### Phase 1 files
-
-- `configs/project.yaml` — project-wide architecture and scaling configuration
-- `configs/hardware_profiles.yaml` — portable CPU/CUDA/ROCm/MPS profiles
-- `src/utils/system_info.py` — runtime, CPU, storage, and PyTorch-device inspection
-- `tests/test_phase1_config.py` — Phase 1 configuration tests
-- `docs/PHASE_01_ARCHITECTURE.md` — detailed Phase 1 architecture
-
-Run the environment inspection with:
-
-```bash
-python src/utils/system_info.py
-```
-
-### Next phase
-
-**Phase 2 — Legal Data Collection:** build a resumable, logged ingestion pipeline before attempting the large legal corpus download.
+The project source code and external datasets are governed by their respective licenses. Dataset-specific attribution and license terms must be preserved in project documentation.
