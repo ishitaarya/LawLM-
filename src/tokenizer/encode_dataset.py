@@ -1,3 +1,5 @@
+"""Phase 7.5.3: encode the validated corpus with the rebuilt tokenizer."""
+
 import json
 from pathlib import Path
 
@@ -16,8 +18,7 @@ def encode_split(name: str, tokenizer: spm.SentencePieceProcessor) -> tuple[int,
     if not input_file.exists():
         raise FileNotFoundError(f"Split not found: {input_file}")
 
-    count = 0
-    token_count = 0
+    count = token_count = 0
 
     with input_file.open("r", encoding="utf-8") as src, output_file.open(
         "w", encoding="utf-8"
@@ -25,7 +26,6 @@ def encode_split(name: str, tokenizer: spm.SentencePieceProcessor) -> tuple[int,
         for line in src:
             if not line.strip():
                 continue
-
             row = json.loads(line)
             text = str(row.get("text") or "").strip()
             if not text:
@@ -35,6 +35,7 @@ def encode_split(name: str, tokenizer: spm.SentencePieceProcessor) -> tuple[int,
             record = {
                 "act_id": row.get("act_id"),
                 "section_number": row.get("section_number"),
+                "jurisdiction": row.get("jurisdiction") or row.get("state"),
                 "tokens": tokens,
             }
             dst.write(json.dumps(record, ensure_ascii=False) + "\n")
@@ -45,24 +46,37 @@ def encode_split(name: str, tokenizer: spm.SentencePieceProcessor) -> tuple[int,
 
 
 def main():
-    model_file = TOKENIZER_DIR / "lawsuit_bpe.model"
-    if not model_file.exists():
+    if not MODEL_FILE.exists():
         raise FileNotFoundError(
-            f"Tokenizer model not found: {model_file}. Run train_tokenizer.py first."
+            f"Tokenizer model not found: {MODEL_FILE}. Run train_tokenizer.py first."
         )
 
     OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
-    tokenizer = spm.SentencePieceProcessor(model_file=str(model_file))
+    tokenizer = spm.SentencePieceProcessor(model_file=str(MODEL_FILE))
 
-    print("=" * 60)
-    print("LawSuit LLM - Phase 3 Dataset Encoding")
-    print("=" * 60)
+    print("=" * 72)
+    print("LawSuit LLM — Phase 7.5.3 Dataset Encoding")
+    print("=" * 72)
+    print(f"Tokenizer:  {MODEL_FILE}")
     print(f"Vocabulary: {tokenizer.get_piece_size():,}")
 
+    total_tokens = 0
+    total_records = 0
+
     for split in ("train", "validation", "test"):
-        count, token_count = encode_split(split, tokenizer)
-        average = token_count / count if count else 0.0
-        print(f"{split:10s}: {count:5,} records | {token_count:9,} tokens | avg {average:.2f}")
+        count, tokens = encode_split(split, tokenizer)
+        total_records += count
+        total_tokens += tokens
+        average = tokens / count if count else 0.0
+        print(
+            f"{split:10s}: {count:6,} records | "
+            f"{tokens:10,} tokens | avg {average:.2f}"
+        )
+
+    print("-" * 72)
+    print(f"TOTAL      : {total_records:6,} records | {total_tokens:10,} tokens")
+    print("Tokenizer was trained on the train split only.")
+    print("=" * 72)
 
 
 if __name__ == "__main__":
