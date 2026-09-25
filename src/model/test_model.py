@@ -1,6 +1,6 @@
 import torch
 
-from lawlm_model import LawLM
+from src.model.lawlm_model import LawLM
 
 
 def main():
@@ -37,7 +37,7 @@ def main():
     )
 
     print("=" * 60)
-    print("LawLM - Transformer Model Test")
+    print("LawSuit LLM - Transformer Model Test")
     print("=" * 60)
     print(f"Parameters: {parameter_count:,}")
     print(f"Input shape: {tuple(input_ids.shape)}")
