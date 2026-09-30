@@ -1,4 +1,4 @@
-"""Phase 7.5.5 training loop for the expanded LawSuit LLM corpus."""
+"""Phase 7.5.5 training loop with checkpoint resume support."""
 
 from __future__ import annotations
 
@@ -24,6 +24,7 @@ CHECKPOINT_DIR = Path("checkpoints")
 LOG_DIR = Path("logs")
 CHECKPOINT_PREFIX = "lawsuit_llm_expanded"
 HISTORY_PATH = LOG_DIR / "expanded_training_history.jsonl"
+RESUME = True
 
 
 def build_model() -> LawSuitLLM:
@@ -98,6 +99,34 @@ def save_checkpoint(
     return path
 
 
+def load_checkpoint(
+    model: LawSuitLLM,
+    optimizer: torch.optim.Optimizer,
+    scheduler: torch.optim.lr_scheduler.LRScheduler,
+    path: Path,
+) -> tuple[int, int, float]:
+    print(f"Resuming from checkpoint: {path}")
+    checkpoint = torch.load(path, map_location=DEVICE, weights_only=False)
+
+    model.load_state_dict(checkpoint["model_state_dict"])
+    optimizer.load_state_dict(checkpoint["optimizer_state_dict"])
+
+    if "scheduler_state_dict" in checkpoint:
+        scheduler.load_state_dict(checkpoint["scheduler_state_dict"])
+
+    epoch = int(checkpoint["epoch"])
+    global_step = int(checkpoint.get("global_step", 0))
+    best_validation_loss = float(
+        checkpoint.get("best_validation_loss", checkpoint.get("validation_loss", float("inf")))
+    )
+
+    print(f"  Restored epoch: {epoch}")
+    print(f"  Restored optimizer step: {global_step}")
+    print(f"  Best validation loss: {best_validation_loss:.4f}")
+    print()
+    return epoch, global_step, best_validation_loss
+
+
 def main() -> None:
     torch.manual_seed(42)
 
@@ -127,6 +156,17 @@ def main() -> None:
     CHECKPOINT_DIR.mkdir(parents=True, exist_ok=True)
     LOG_DIR.mkdir(parents=True, exist_ok=True)
 
+    start_epoch = 1
+    global_step = 0
+    best_validation_loss = float("inf")
+
+    resume_checkpoint = CHECKPOINT_DIR / f"{CHECKPOINT_PREFIX}_epoch_01.pt"
+    if RESUME and resume_checkpoint.exists():
+        restored_epoch, global_step, best_validation_loss = load_checkpoint(
+            model, optimizer, scheduler, resume_checkpoint
+        )
+        start_epoch = restored_epoch + 1
+
     print("=" * 68)
     print("LawSuit LLM - Phase 7.5.5 Expanded-Corpus Training")
     print("=" * 68)
@@ -139,16 +179,19 @@ def main() -> None:
     print(f"Optimizer steps/epoch: {steps_per_epoch:,}")
     print(f"Total optimizer steps: {total_steps:,}")
     print(f"Epochs: {EPOCHS}")
-    print(f"Learning rate: {LEARNING_RATE}")
-    print("Initialization: random")
+    print(f"Starting epoch: {start_epoch}")
+    print(f"Learning rate: {scheduler.get_last_lr()[0]:.8f}")
+    print("Initialization: random (unless resuming from checkpoint)")
     print("Pretrained weights: no")
     print("=" * 68)
 
-    best_validation_loss = float("inf")
-    global_step = 0
+    if start_epoch > EPOCHS:
+        print("Training is already complete. No new epochs required.")
+        return
 
-    with HISTORY_PATH.open("w", encoding="utf-8") as history:
-        for epoch in range(1, EPOCHS + 1):
+    history_mode = "a" if HISTORY_PATH.exists() else "w"
+    with HISTORY_PATH.open(history_mode, encoding="utf-8") as history:
+        for epoch in range(start_epoch, EPOCHS + 1):
             model.train()
             optimizer.zero_grad(set_to_none=True)
             running_loss = 0.0
