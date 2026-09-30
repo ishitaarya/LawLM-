@@ -4,16 +4,23 @@ Evaluates a saved checkpoint on the held-out test split and writes a compact
 JSON report containing loss, perplexity, parameter count, and run metadata.
 """
 from __future__ import annotations
-import argparse, json, math
+
+import argparse
+import json
+import math
 from datetime import datetime, timezone
 from pathlib import Path
+
 import torch
 from torch.utils.data import DataLoader
+
 from src.model.lawlm_model import LawSuitLLM
 from src.training.causal_lm_dataset import build_split_dataset
 
+
 def perplexity(loss: float) -> float:
     return math.exp(min(loss, 20.0))
+
 
 def evaluate(model: LawSuitLLM, loader: DataLoader, device: torch.device) -> float:
     model.eval()
@@ -26,6 +33,7 @@ def evaluate(model: LawSuitLLM, loader: DataLoader, device: torch.device) -> flo
             total_loss += loss.item()
             batches += 1
     return total_loss / max(1, batches)
+
 
 def load_checkpoint(path: Path, device: torch.device):
     checkpoint = torch.load(path, map_location=device, weights_only=False)
@@ -42,44 +50,77 @@ def load_checkpoint(path: Path, device: torch.device):
     model.load_state_dict(checkpoint["model_state_dict"])
     return model, checkpoint
 
+
 def main() -> None:
     parser = argparse.ArgumentParser(description="Evaluate a LawSuit LLM checkpoint.")
-    parser.add_argument("--checkpoint", default="checkpoints/lawsuit_llm_epoch_03.pt")
+    parser.add_argument(
+        "--checkpoint",
+        default="checkpoints/lawsuit_llm_expanded_best.pt",
+    )
     parser.add_argument("--batch-size", type=int, default=2)
     parser.add_argument("--block-size", type=int, default=256)
-    parser.add_argument("--output", default="logs/evaluation_test.json")
+    parser.add_argument(
+        "--output",
+        default="logs/evaluation_expanded_test.json",
+    )
     args = parser.parse_args()
+
     device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     checkpoint_path = Path(args.checkpoint)
     if not checkpoint_path.exists():
         raise FileNotFoundError(f"Checkpoint not found: {checkpoint_path}")
+
     dataset = build_split_dataset("test", block_size=args.block_size)
-    loader = DataLoader(dataset, batch_size=args.batch_size, shuffle=False, num_workers=0)
+    loader = DataLoader(
+        dataset,
+        batch_size=args.batch_size,
+        shuffle=False,
+        num_workers=0,
+    )
+
     model, checkpoint = load_checkpoint(checkpoint_path, device)
     test_loss = evaluate(model, loader, device)
+
     report = {
-        "phase": "7.1", "split": "test", "checkpoint": str(checkpoint_path),
-        "device": str(device), "parameters": model.parameter_count(),
-        "test_samples": len(dataset), "block_size": args.block_size,
-        "test_loss": test_loss, "test_perplexity": perplexity(test_loss),
+        "phase": "7.1_expanded",
+        "split": "test",
+        "checkpoint": str(checkpoint_path),
+        "device": str(device),
+        "parameters": model.parameter_count(),
+        "test_samples": len(dataset),
+        "block_size": args.block_size,
+        "test_loss": test_loss,
+        "test_perplexity": perplexity(test_loss),
         "training_epoch": checkpoint.get("epoch"),
         "training_validation_loss": checkpoint.get("validation_loss"),
+        "training_validation_perplexity": (
+            perplexity(checkpoint["validation_loss"])
+            if checkpoint.get("validation_loss") is not None
+            else None
+        ),
         "evaluated_at_utc": datetime.now(timezone.utc).isoformat(),
     }
+
     output_path = Path(args.output)
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    output_path.write_text(json.dumps(report, indent=2) + "\n", encoding="utf-8")
-    print("=" * 60)
-    print("LawSuit LLM - Phase 7.1 Model Evaluation")
-    print("=" * 60)
+    output_path.write_text(
+        json.dumps(report, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+    print("=" * 64)
+    print("LawSuit LLM - Phase 7.1 Expanded Model Evaluation")
+    print("=" * 64)
     print(f"Device: {device}")
     print(f"Checkpoint: {checkpoint_path}")
     print(f"Parameters: {model.parameter_count():,}")
     print(f"Test samples: {len(dataset):,}")
     print(f"Test loss: {test_loss:.4f}")
     print(f"Test perplexity: {perplexity(test_loss):.2f}")
+    print(f"Training validation loss: {checkpoint.get('validation_loss')}")
     print(f"Report: {output_path}")
-    print("=" * 60)
+    print("=" * 64)
+
 
 if __name__ == "__main__":
     main()
