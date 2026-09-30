@@ -20,7 +20,7 @@ from src.document.retriever import build_index, load_chunks, search
 from src.generation.generate import load_model
 
 DEFAULT_CHUNKS = Path("data/documents/Indian_Contract_Act_1872_chunks.jsonl")
-DEFAULT_CHECKPOINT = Path("checkpoints/lawsuit_llm_epoch_03.pt")
+DEFAULT_CHECKPOINT = Path("checkpoints/lawsuit_llm_expanded_best.pt")
 DEFAULT_TOKENIZER = Path("data/tokenizer/lawsuit_bpe.model")
 DEVICE = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 
@@ -116,6 +116,7 @@ def main() -> None:
     print("LawSuit LLM — Phase 6C End-to-End Legal QA")
     print("=" * 72)
     print(f"Device: {DEVICE}")
+    print(f"Checkpoint: {DEFAULT_CHECKPOINT}")
     print(f"Question: {args.query}")
     print()
     print("Retrieved sections:")
