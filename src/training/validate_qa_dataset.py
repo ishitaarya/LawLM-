@@ -19,15 +19,31 @@ def main() -> None:
         for name in ("train", "validation", "test")
     }
 
-    seen_questions: set[str] = set()
+    seen_records: set[tuple[str, str]] = set()
     seen_sources: dict[str, str] = {}
+    unique_questions: set[str] = set()
 
     for split, rows in splits.items():
         for row in rows:
-            required = ("question", "context", "answer", "section", "act_id", "source_id")
+            required = (
+                "question",
+                "context",
+                "answer",
+                "section",
+                "act_id",
+                "source_id",
+            )
             assert all(str(row.get(key, "")).strip() for key in required)
-            assert row["question"] not in seen_questions
-            seen_questions.add(row["question"])
+
+            # The same template question may legitimately occur for different
+            # Acts/sections. A duplicate is only invalid when both the source
+            # and question are identical.
+            record_key = (row["source_id"], row["question"])
+            assert record_key not in seen_records, (
+                f"Duplicate QA record: {record_key}"
+            )
+            seen_records.add(record_key)
+            unique_questions.add(row["question"])
 
             source = row["source_id"]
             previous = seen_sources.get(source)
@@ -46,9 +62,10 @@ def main() -> None:
     for split, rows in splits.items():
         print(f"{split:>12}: {len(rows):,}")
     print(f"{'TOTAL':>12}: {total:,}")
-    print(f"Unique questions: {len(seen_questions):,}")
+    print(f"Unique question templates: {len(unique_questions):,}")
+    print(f"Unique QA records: {len(seen_records):,}")
     print("Required fields: passed")
-    print("Duplicate questions: passed")
+    print("Duplicate QA records: passed")
     print("Source split isolation: passed")
     print("Dataset size cap: passed")
     print("QA dataset validation passed!")
