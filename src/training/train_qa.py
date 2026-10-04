@@ -121,8 +121,9 @@ def evaluate(
             input_ids = batch["input_ids"].to(device)
             labels = batch["labels"].to(device)
 
-            output = model(input_ids, targets=labels)
-            loss = output["loss"] if isinstance(output, dict) else output[1]
+            _, loss = model(input_ids, targets=labels)
+            if loss is None:
+                raise RuntimeError("Model returned no loss during QA evaluation.")
 
             total_loss += float(loss.item())
             batches += 1
@@ -222,8 +223,9 @@ def main() -> None:
             input_ids = batch["input_ids"].to(device)
             labels = batch["labels"].to(device)
 
-            output = model(input_ids, targets=labels)
-            loss = output["loss"] if isinstance(output, dict) else output[1]
+            _, loss = model(input_ids, targets=labels)
+            if loss is None:
+                raise RuntimeError("Model returned no loss for QA training.")
 
             loss_for_backward = loss / GRADIENT_ACCUMULATION
             loss_for_backward.backward()
