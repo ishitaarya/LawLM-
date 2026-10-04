@@ -14,11 +14,24 @@ import re
 from typing import Any
 
 
+def _is_index_like(result: dict[str, Any]) -> bool:
+    """Identify table-of-contents/index chunks that are not the provision."""
+    title = " ".join(str(result.get("section_title") or "").lower().split())
+    text = " ".join(str(result.get("text") or "").lower().split())
+
+    return title in {"interpretation", "contents", "table of contents", "index"} or (
+        title == "interpretation" and text.count("25.") > 1
+    )
+
+
 def deduplicate_results(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Keep the highest-scoring chunk for each section number."""
+    """Keep the highest-scoring useful chunk for each section number."""
     best: dict[str, dict[str, Any]] = {}
 
     for result in results:
+        if _is_index_like(result):
+            continue
+
         section = str(result.get("section_number") or "N/A")
         current = best.get(section)
         if current is None or result.get("score", 0.0) > current.get("score", 0.0):
@@ -32,14 +45,35 @@ def deduplicate_results(results: list[dict[str, Any]]) -> list[dict[str, Any]]:
 
 
 def clean_text(text: str) -> str:
-    return " ".join(str(text).split()).strip()
+    """Normalize whitespace and common PDF extraction spacing artifacts."""
+    text = str(text).replace("\u00ad", "")
+    text = re.sub(r"\s+", " ", text).strip()
+    text = re.sub(r"\s+([,.;:])", r"\1", text)
+    replacements = {
+        "l i mitation": "limitation",
+        "i t": "it",
+        "forthe": "for the",
+        "cons ideration": "consideration",
+    }
+    for source, target in replacements.items():
+        text = text.replace(source, target)
+    return text
 
 
 def extract_section_facts(result: dict[str, Any]) -> list[str]:
-    """Extract sentence-sized facts without inventing content."""
+    """Extract meaningful statutory clauses without inventing content."""
     text = clean_text(result.get("text", ""))
     if not text:
         return []
+
+    section = str(result.get("section_number") or "").strip()
+    if section:
+        text = re.sub(rf"^\s*{re.escape(section)}\.\s*", "", text, count=1)
+
+    # The PDF chunk contains the section heading followed by an em dash and
+    # then the actual operative provision.
+    if "—" in text:
+        text = text.split("—", 1)[1].strip()
 
     sentences = re.split(r"(?<=[.;])\s+", text)
     return [sentence.strip() for sentence in sentences if sentence.strip()]
@@ -63,15 +97,11 @@ def build_grounded_answer(
     primary = unique_results[0]
     section = str(primary.get("section_number") or "N/A")
     title = clean_text(primary.get("section_title") or "Untitled section")
-    text = clean_text(primary.get("text", ""))
 
     facts = extract_section_facts(primary)
 
     if facts:
-        answer = (
-            f"Based on Section {section} ({title}), the relevant provision states: "
-            f"{facts[0]}"
-        )
+        answer = f"Section {section} ({title}) provides: {facts[0]}"
     else:
         answer = (
             f"Section {section} ({title}) was retrieved, but no readable "
