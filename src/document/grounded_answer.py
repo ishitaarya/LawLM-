@@ -49,19 +49,22 @@ def clean_text(text: str) -> str:
     text = str(text).replace("\u00ad", "")
     text = re.sub(r"\s+", " ", text).strip()
     text = re.sub(r"\s+([,.;:])", r"\1", text)
+
     replacements = {
         "l i mitation": "limitation",
         "i t": "it",
         "forthe": "for the",
         "cons ideration": "consideration",
+        "registration of 1[documents]": "registration of documents",
     }
     for source, target in replacements.items():
         text = text.replace(source, target)
+
     return text
 
 
 def extract_section_facts(result: dict[str, Any]) -> list[str]:
-    """Extract meaningful statutory clauses without inventing content."""
+    """Extract the main statutory rule and all numbered exception clauses."""
     text = clean_text(result.get("text", ""))
     if not text:
         return []
@@ -70,13 +73,11 @@ def extract_section_facts(result: dict[str, Any]) -> list[str]:
     if section:
         text = re.sub(rf"^\s*{re.escape(section)}\.\s*", "", text, count=1)
 
-    # The PDF chunk contains the section heading followed by an em dash and
-    # then the actual operative provision.
+    # Remove the section heading; the operative provision follows the em dash.
     if "—" in text:
         text = text.split("—", 1)[1].strip()
 
-    sentences = re.split(r"(?<=[.;])\s+", text)
-    return [sentence.strip() for sentence in sentences if sentence.strip()]
+    return [text]
 
 
 def build_grounded_answer(
