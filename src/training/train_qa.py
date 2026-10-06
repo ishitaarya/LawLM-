@@ -92,10 +92,10 @@ def load_base_checkpoint(device: torch.device) -> tuple[LawLM, dict]:
     model = LawLM(
         vocab_size=10000,
         block_size=BLOCK_SIZE,
-        n_embd=384,
-        n_layer=4,
-        n_head=6,
-        ffn_dim=1536,
+        embed_dim=384,
+        num_layers=4,
+        num_heads=6,
+        ff_hidden_dim=1536,
         dropout=0.1,
     ).to(device)
 
