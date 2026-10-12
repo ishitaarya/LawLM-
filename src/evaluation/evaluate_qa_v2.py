@@ -6,6 +6,7 @@ import sentencepiece as spm
 import torch
 from src.model.lawlm_model import LawLM
 from src.training.train_qa_v2 import QADataset,collate
+from torch.utils.data import DataLoader
 
 CKPT=Path("checkpoints/lawsuit_llm_qa_v2_best.pt")
 TEST=Path("data/qa_v2/test.jsonl")
@@ -26,17 +27,22 @@ def main():
     m.load_state_dict(ck["model_state_dict"]); m.eval()
     ds=QADataset(Path(a.test)); sp=spm.SentencePieceProcessor(model_file=a.tokenizer)
     total=0.; n=0
+    # QADataset returns tensors; batch them with unsqueeze rather than torch.tensor([tensor]).
     with torch.no_grad():
         for i in range(len(ds)):
-            ids=torch.tensor([ds[i]["input_ids"]],dtype=torch.long,device=device)
-            labels=torch.tensor([ds[i]["labels"]],dtype=torch.long,device=device)
-            _,loss=m(ids,targets=labels); total+=float(loss); n+=1
+            row=ds[i]
+            ids=row["input_ids"].unsqueeze(0).to(device)
+            labels=row["labels"].unsqueeze(0).to(device)
+            _,loss=m(ids,targets=labels); total+=loss.detach().item(); n+=1
     loss=total/max(1,n)
     samples=[]
     for i in range(min(a.count,len(ds))):
-        r=ds.rows[i]; prompt=r["input_ids"][:next(j for j,x in enumerate(r["labels"]) if x!=-100)]
+        r=ds.rows[i]
+        first_answer=next(j for j,x in enumerate(r["labels"]) if x!=-100)
+        prompt=r["input_ids"][:first_answer]
         x=torch.tensor([prompt],dtype=torch.long,device=device)
-        y=m.generate(x,max_new_tokens=a.max_new_tokens,temperature=a.temperature,top_k=a.top_k,repetition_penalty=1.15,eos_token_id=EOS)
+        with torch.no_grad():
+            y=m.generate(x,max_new_tokens=a.max_new_tokens,temperature=a.temperature,top_k=a.top_k,repetition_penalty=1.15,eos_token_id=EOS)
         new=y[0].tolist()[len(prompt):]
         samples.append({"index":i,"question":r["question"],"expected":r["answer"],
                         "generated":sp.decode(new).strip(),"generated_ids":new,
