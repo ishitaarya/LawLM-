@@ -1,7 +1,7 @@
-"""Phase 7.5F — Build a tokenizer-safe QA dataset for conservative adaptation.
+"""Phase 7.5F — Build a tokenizer-safe, causally aligned QA dataset.
 
-V2 keeps the project's own tokenizer and legal text. It removes the fragile
-newline/template formatting used by the first QA run and records UNK usage.
+Labels at position t are the next token after input position t. The prompt
+is masked, while the final prompt token predicts the first answer token.
 No external or pretrained model is used.
 """
 from __future__ import annotations
@@ -70,14 +70,7 @@ def token_chunks(sp, text: str) -> list[str]:
     return [c.strip() for c in chunks if c.strip()]
 
 def choose_template(sp, question: str) -> tuple[str, list[int]]:
-    # Prefer templates with no unknown token. The question itself may contain
-    # an unknown character, so candidates are tested rather than assumed.
-    candidates = [
-        f"Question {question} Answer",
-        f"Question {question} Answer:",
-        f"{question} Answer",
-        f"{question}",
-    ]
+    candidates = [f"Question {question} Answer", f"Question {question} Answer:", f"{question} Answer", f"{question}"]
     for text in candidates:
         ids = sp.encode(text, out_type=int)
         if 1 not in ids:
@@ -88,10 +81,12 @@ def choose_template(sp, question: str) -> tuple[str, list[int]]:
 def build_sequence(sp, question: str, answer: str):
     prefix, prefix_ids = choose_template(sp, question)
     budget = MAX_LENGTH - len(prefix_ids) - 1
-    answer_ids = sp.encode(answer, out_type=int)[:max(1, budget)]
+    answer_ids = sp.encode(answer, out_type=int)[:max(1, min(budget, MAX_ANSWER_TOKENS))]
     ids = prefix_ids + answer_ids + [EOS_ID]
-    labels = [-100] * len(prefix_ids) + answer_ids + [EOS_ID]
-    return prefix, ids[:MAX_LENGTH], labels[:MAX_LENGTH]
+    # At input position t, the model predicts token t+1. The last prompt
+    # token therefore predicts answer_ids[0]. The final EOS input has no target.
+    labels = [-100] * max(0, len(prefix_ids) - 1) + answer_ids + [EOS_ID, -100]
+    return prefix, ids[:MAX_LENGTH], labels[:MAX_LENGTH], len(prefix_ids)
 
 def main():
     sp = spm.SentencePieceProcessor(model_file=str(TOKENIZER))
@@ -109,33 +104,24 @@ def main():
                 q = row["question"]
                 if row.get("question_type") == "section_provision":
                     q = f"{q} Give the relevant provision text."
-                template, ids, labels = build_sequence(sp, q, chunk)
-                prompt_len = sum(x == -100 for x in labels)
-                unk_prompt += sum(x == 1 for x in ids[:prompt_len])
-                out.append({
-                    "input_ids": ids, "labels": labels,
-                    "attention_mask": [1] * len(ids),
-                    "question": q, "answer": chunk,
-                    "section": row["section"], "act_id": row["act_id"],
-                    "source_id": row["source_id"],
+                template, ids, labels, prompt_length = build_sequence(sp, q, chunk)
+                unk_prompt += sum(x == 1 for x in ids[:prompt_length])
+                out.append({"input_ids": ids, "labels": labels, "prompt_length": prompt_length,
+                    "attention_mask": [1] * len(ids), "question": q, "answer": chunk,
+                    "section": row["section"], "act_id": row["act_id"], "source_id": row["source_id"],
                     "question_type": row.get("question_type", "unknown"),
                     "chunk_index": chunk_index, "chunk_count": len(chunks),
-                    "answer_tokens": len(sp.encode(chunk, out_type=int)),
-                    "prompt_template": template,
-                })
+                    "answer_tokens": len(sp.encode(chunk, out_type=int)), "prompt_template": template})
         with (OUTPUT_DIR / f"{split}.jsonl").open("w", encoding="utf-8") as f:
             for row in out:
                 f.write(json.dumps(row, ensure_ascii=False) + "\n")
-        summary["splits"][split] = {
-            "records": len(out), "source_records": len(rows),
+        summary["splits"][split] = {"records": len(out), "source_records": len(rows),
             "prompt_unk_tokens": unk_prompt,
-            "prompt_tokens": sum(sum(x == -100 for x in r["labels"]) for r in out),
-            "answer_tokens": sum(sum(x != -100 for x in r["labels"]) for r in out),
-            "max_sequence_tokens": max((len(r["input_ids"]) for r in out), default=0),
-        }
+            "prompt_tokens": sum(r["prompt_length"] for r in out),
+            "supervised_tokens": sum(sum(x != -100 for x in r["labels"]) for r in out),
+            "max_sequence_tokens": max((len(r["input_ids"]) for r in out), default=0)}
         print(f"{split}: {len(out):,} records; prompt UNK {unk_prompt:,}")
     (OUTPUT_DIR / "summary.json").write_text(json.dumps(summary, indent=2), encoding="utf-8")
-    print("QA V2 dataset written to", OUTPUT_DIR)
+    print("Causally aligned QA V2 dataset written to", OUTPUT_DIR)
 
-if __name__ == "__main__":
-    main()
+if __name__ == "__main__": main()
