@@ -15,6 +15,7 @@ from pathlib import Path
 import torch
 from torch.utils.data import Dataset, DataLoader
 from src.model.lawlm_model import LawLM
+from src.training.github_checkpoint_sync import GitHubCheckpointSync
 
 DATA = Path("data/qa_v2")
 BASE = Path("checkpoints/lawsuit_llm_expanded_best.pt")
@@ -31,6 +32,7 @@ SEED = 42
 BLOCK = 256
 SAVE_EVERY_UPDATES = 50
 KEEP_RESUME_CHECKPOINTS = 5
+REMOTE_SAVE_EVERY_UPDATES = 250
 
 
 def seed():
@@ -70,9 +72,8 @@ def ppl(x):
     return math.exp(min(x, 20))
 
 
-def model_from_checkpoint(device):
-    ck = torch.load(BASE, map_location=device, weights_only=False)
-    model = LawLM(
+def new_model(device):
+    return LawLM(
         vocab_size=10000,
         block_size=BLOCK,
         embed_dim=384,
@@ -81,6 +82,11 @@ def model_from_checkpoint(device):
         ff_hidden_dim=1536,
         dropout=0.1,
     ).to(device)
+
+
+def model_from_checkpoint(device):
+    ck = torch.load(BASE, map_location=device, weights_only=False)
+    model = new_model(device)
     model.load_state_dict(ck["model_state_dict"])
     return model
 
@@ -156,6 +162,7 @@ def save_resume_checkpoint(payload, global_step):
         old_path.unlink()
 
     print(f"Recovery checkpoint saved: {path} (keeping newest {KEEP_RESUME_CHECKPOINTS})")
+    return path
 
 
 def latest_resume_checkpoint():
@@ -182,9 +189,14 @@ def main():
         val, batch_size=BATCH_SIZE, shuffle=False, collate_fn=collate, num_workers=0
     )
 
-    model = model_from_checkpoint(device)
-    optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
+    github_sync = GitHubCheckpointSync()
+    if not args.fresh:
+        github_sync.restore_latest_if_newer(RESUME_DIR)
     resume_path = None if args.fresh else latest_resume_checkpoint()
+    # A restored recovery checkpoint already contains model weights, so a new
+    # machine does not need the original base checkpoint to resume training.
+    model = new_model(device) if resume_path is not None else model_from_checkpoint(device)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=WEIGHT_DECAY)
     start_epoch = 1
     start_batch = 0
     resume_order = None
@@ -217,7 +229,9 @@ def main():
     print("Device:", device)
     print("Train:", len(train), "| Validation:", len(val))
     print("LR:", LR, "| Grad accumulation:", GRAD_ACCUM, "| Epochs:", EPOCHS)
-    print("Rolling recovery checkpoints:", RESUME_DIR, "| Retained:", KEEP_RESUME_CHECKPOINTS)
+    print("Rolling local recovery checkpoints:", RESUME_DIR, "| Retained:", KEEP_RESUME_CHECKPOINTS)
+    print("GitHub remote backups:", "enabled" if github_sync.enabled else "disabled (set LAWLM_GITHUB_TOKEN)")
+    print("Remote backup cadence:", REMOTE_SAVE_EVERY_UPDATES, "optimizer updates; latest 5 retained remotely")
     print("Best-validation checkpoint:", BEST)
     print("=" * 72)
 
@@ -271,7 +285,9 @@ def main():
                         running_loss=epoch_running_loss, batches_seen=epoch_batches_seen,
                         best_validation_loss=best, device=device,
                     )
-                    save_resume_checkpoint(payload, global_step)
+                    checkpoint_path = save_resume_checkpoint(payload, global_step)
+                    if global_step % REMOTE_SAVE_EVERY_UPDATES == 0 and bi != len(train):
+                        github_sync.upload_and_prune(checkpoint_path)
 
             if bi % 2000 == 0 or bi == len(train):
                 print(f"Epoch {epoch} Batch {bi:,}/{len(train):,} Loss {loss.item():.4f}")
@@ -325,7 +341,8 @@ def main():
             epoch_order=None, global_step=global_step, running_loss=0.0,
             batches_seen=0, best_validation_loss=best, device=device,
         )
-        save_resume_checkpoint(completed_payload, global_step)
+        final_checkpoint_path = save_resume_checkpoint(completed_payload, global_step)
+        github_sync.upload_and_prune(final_checkpoint_path)
 
     print("=" * 72)
     print("QA V2 training finished. Best:", BEST, "| Validation loss:", best)
