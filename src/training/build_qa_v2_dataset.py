@@ -33,7 +33,7 @@ def load(path: Path) -> list[dict]:
 def extract_act_title(row: dict) -> str:
     """Extract the human-readable Act title from the source context."""
     context = row.get("context", "")
-    match = re.search(r"(?m)^Title:\\s*(.+?)\\s*$", context)
+    match = re.search(r"(?m)^Title:\s*(.+?)\s*$", context)
     if match:
         return match.group(1).strip()
     return str(row.get("act_id", "Unknown Act"))
@@ -137,7 +137,7 @@ def main():
         output_path = OUTPUT_DIR / f"{split}.jsonl"
         with output_path.open("w", encoding="utf-8") as f:
             for row in out:
-                f.write(json.dumps(row, ensure_ascii=False) + "\\n")
+                f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
         summary["splits"][split] = {
             "records": len(out),
