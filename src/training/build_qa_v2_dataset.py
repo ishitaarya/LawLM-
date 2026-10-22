@@ -1,4 +1,4 @@
-""""Phase 7.5F — Build a tokenizer-safe, causally aligned QA dataset.
+"""Phase 7.5F — Build a tokenizer-safe, causally aligned QA dataset.
 
 Each source QA record becomes one training example. Prompts identify the Act
 and section. Long answers prefer the last complete sentence within the token
@@ -21,7 +21,6 @@ MAX_LENGTH = 256
 EOS_ID = 3
 MIN_ANSWER_TOKENS = 8
 MAX_ANSWER_TOKENS = 160
-SENTENCE_END = re.compile(r'[.!?](?:["”’\')\]]*)$')
 
 
 def load(path: Path) -> list[dict]:
@@ -32,7 +31,7 @@ def load(path: Path) -> list[dict]:
 def extract_act_title(row: dict) -> str:
     """Extract the human-readable Act title from the source context."""
     context = row.get("context", "")
-    match = re.search(r"(?m)^Title:\\s*(.+?)\\s*$", context)
+    match = re.search(r"(?m)^Title:\s*(.+?)\s*$", context)
     if match:
         return match.group(1).strip()
     return str(row.get("act_id", "Unknown Act"))
@@ -62,7 +61,7 @@ def select_answer_tokens(sp, answer: str, budget: int) -> tuple[list[int], str]:
     capped_ids = all_ids[:limit]
     capped_text = sp.decode(capped_ids)
     # Select the last sentence-ending punctuation in the capped text.
-    matches = list(re.finditer(r'[.!?](?:["”’\')\]]*)(?:\\s+|$)', capped_text))
+    matches = list(re.finditer(r'[.!?](?:["”’\')\]]*)(?:\s+|$)', capped_text))
     if matches:
         boundary = matches[-1].end()
         clean_text = capped_text[:boundary].strip()
@@ -158,7 +157,7 @@ def main():
         output_path = OUTPUT_DIR / f"{split}.jsonl"
         with output_path.open("w", encoding="utf-8") as f:
             for row in out:
-                f.write(json.dumps(row, ensure_ascii=False) + "\\n")
+                f.write(json.dumps(row, ensure_ascii=False) + "\n")
 
         summary["splits"][split] = {
             "records": len(out),
