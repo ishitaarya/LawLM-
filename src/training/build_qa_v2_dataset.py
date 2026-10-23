@@ -73,8 +73,12 @@ def clean_section_answer(answer: str, section: str) -> tuple[str, str]:
             explicit_num = re.match(r"(\d+)", explicit.group(1))
             if explicit_num and int(explicit_num.group(1)) > target_number:
                 candidates.append(explicit)
+        # Accept both **20.** and **20**. OCR/Markdown exports vary in
+        # whether the period is inside or outside the bold markers.
+        # Keep this anchored to a numbered heading followed by uppercase prose
+        # to avoid cutting ordinary numeric references in legal text.
         for provision in re.finditer(
-            r"\s+(?:>\s*)?(?:\*\*)?(\d+)[A-Za-z]?(?:\*\*)?\.\s+(?=[A-Z])",
+            r"\s+(?:>\s*)?(?:\*\*)?(\d+)[A-Za-z]?(?:\.)?(?:\*\*)?\.?(?:\*\*)?\s+(?=[A-Z])",
             body,
         ):
             if int(provision.group(1)) > target_number:
