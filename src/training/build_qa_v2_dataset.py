@@ -101,6 +101,8 @@ def clean_section_answer(answer: str, section: str) -> tuple[str, str]:
     body = body.replace("respectof", "respect of").replace("Respectof", "Respect of")
     body = body.replace("anyof", "any of").replace("Anyof", "Any of")
     body = body.replace("ofthe", "of the").replace("Ofthe", "Of the")
+    body = body.replace("intoforce", "into force").replace("Intoforce", "Into force")
+    body = body.replace("of, British Burma", "of British Burma")
     body = re.sub(r" +", " ", body).strip()
     if len(body) < 30:
         return "", "target_section_body_too_short_rejected"
