@@ -38,35 +38,60 @@ def extract_act_title(row: dict) -> str:
 
 
 def clean_section_answer(answer: str, section: str) -> tuple[str, str]:
-    """Remove repeated Act metadata when a target-section marker is present.
+    """Extract a target provision conservatively; reject unidentifiable answers.
 
-    Returns (cleaned_answer, status). If the source does not contain an
-    unambiguous target marker, preserve the source answer rather than guessing.
+    Source corpus rows can contain Act metadata, duplicate section text, and
+    adjacent provisions. Never fall back to the whole contaminated answer.
     """
     text = " ".join(str(answer).split()).strip()
-    target = re.escape(str(section).strip())
+    section_value = str(section).strip()
+    target = re.escape(section_value)
     marker = re.compile(
-        rf"\bSection\s*[:]?\s*{target}\s*:\s*",
+        rf"\\bSection\\s*[:] ?\\s*{target}\\s*:\\s*".replace("[:] ?", "[:]?"),
         flags=re.IGNORECASE,
     )
     match = marker.search(text)
     if not match:
-        return text, "target_section_marker_not_found"
+        return "", "target_section_marker_not_found_rejected"
 
     body = text[match.end():].strip()
-    # A later explicit Section N: marker commonly signals the next provision
-    # in concatenated corpus text. Only split at explicit markers, not generic
-    # references such as "section fourteen" in prose.
-    next_marker = re.search(
-        r"\s+\bSection\s*[:]?\s*[A-Za-z0-9.-]+\s*:\s*",
-        body,
-        flags=re.IGNORECASE,
-    )
-    if next_marker:
-        body = body[:next_marker.start()].strip()
-
     if not body:
-        return text, "target_section_body_empty"
+        return "", "target_section_body_empty_rejected"
+
+    # Stop at the next numbered provision, including headings whose OCR/markup
+    # places a title between Markdown markers and the section number.
+    numeric = re.fullmatch(r"(\\d+)[A-Za-z]?", section_value)
+    if numeric:
+        next_number = str(int(numeric.group(1)) + 1)
+        next_patterns = [
+            rf"\\s+(?:>\\s*)?(?:\\*\\*[^*]{{1,100}}\\*\\*\\s*)?{re.escape(next_number)}\\.\\s+",
+            rf"\\s+Section\\s*[:] ?\\s*{re.escape(next_number)}\\s*[:.]\\s*".replace("[:] ?", "[:]?"),
+        ]
+        matches = [m for pattern in next_patterns
+                   if (m := re.search(pattern, body, flags=re.IGNORECASE))]
+        if matches:
+            body = body[:min(m.start() for m in matches)].strip()
+
+    # Remove an immediately duplicated copy of the provision opening. This
+    # corpus often repeats the first sentence after the explicit Section N:.
+    sentence_end = re.search(r"[.!?](?:[”’\"'\\]]*)?(?:\\s+|$)", body)
+    if sentence_end:
+        first_sentence = body[:sentence_end.end()].strip()
+        remainder = body[sentence_end.end():].lstrip()
+        duplicate_prefix = re.compile(
+            rf"^{re.escape(section_value)}\\.\\s*{re.escape(first_sentence)}",
+            flags=re.IGNORECASE,
+        )
+        duplicate = duplicate_prefix.match(remainder)
+        if duplicate:
+            body = first_sentence + remainder[duplicate.end():]
+
+    body = re.sub(r"\\s+", " ", body).strip()
+    if len(body) < 30:
+        return "", "target_section_body_too_short_rejected"
+    # Do not train on obvious Act metadata or a section heading left in the body.
+    if re.search(r"\\b(?:Act:.*\\|\\s*(?:India|Repealed)|Section\\s+\\d+\\s*:)", body, re.I):
+        return "", "target_section_residual_metadata_rejected"
     return body, "target_section_extracted"
 
 
@@ -124,7 +149,7 @@ def main():
         "max_answer_tokens": MAX_ANSWER_TOKENS,
         "one_example_per_source_record": True,
         "act_and_section_in_prompt": True,
-        "section_answer_cleanup": True,
+        "section_answer_cleanup": True,\n        "unidentifiable_answers_rejected": True,
         "external_llm_used": False,
         "pretrained_model_used": False,
         "splits": {},
