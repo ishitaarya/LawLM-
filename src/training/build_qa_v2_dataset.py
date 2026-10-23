@@ -1,10 +1,10 @@
-"""Phase 7.5F — Build a tokenizer-safe, causally aligned QA dataset.
+"""Build a tokenizer-safe, causally aligned QA dataset from source records.
 
-Each source QA record becomes one training example. Prompts identify the Act
-and section. Long answers prefer the last complete sentence within the token
-budget; if no sentence boundary fits, a hard token cap is used and flagged.
-
-Labels at position t target the token at position t+1. No pretrained model is used.
+Before tokenization, remove Act-level metadata from answers when the source
+answer contains a repeated full-document header. If a matching "Section N:"
+marker exists, keep the target section body and drop a later explicit
+"Section M:" header. The builder reports how often this cleanup was applied
+or could not identify a matching section; inspect the summary before training.
 """
 from __future__ import annotations
 
@@ -37,12 +37,41 @@ def extract_act_title(row: dict) -> str:
     return str(row.get("act_id", "Unknown Act"))
 
 
+def clean_section_answer(answer: str, section: str) -> tuple[str, str]:
+    """Remove repeated Act metadata when a target-section marker is present.
+
+    Returns (cleaned_answer, status). If the source does not contain an
+    unambiguous target marker, preserve the source answer rather than guessing.
+    """
+    text = " ".join(str(answer).split()).strip()
+    target = re.escape(str(section).strip())
+    marker = re.compile(
+        rf"\bSection\s*[:]?\s*{target}\s*:\s*",
+        flags=re.IGNORECASE,
+    )
+    match = marker.search(text)
+    if not match:
+        return text, "target_section_marker_not_found"
+
+    body = text[match.end():].strip()
+    # A later explicit Section N: marker commonly signals the next provision
+    # in concatenated corpus text. Only split at explicit markers, not generic
+    # references such as "section fourteen" in prose.
+    next_marker = re.search(
+        r"\s+\bSection\s*[:]?\s*[A-Za-z0-9.-]+\s*:\s*",
+        body,
+        flags=re.IGNORECASE,
+    )
+    if next_marker:
+        body = body[:next_marker.start()].strip()
+
+    if not body:
+        return text, "target_section_body_empty"
+    return body, "target_section_extracted"
+
+
 def choose_template(sp, question: str) -> tuple[str, list[int]]:
-    candidates = [
-        f"{question} Answer:",
-        f"{question} Answer",
-        f"{question}",
-    ]
+    candidates = [f"{question} Answer:", f"{question} Answer", f"{question}"]
     for text in candidates:
         ids = sp.encode(text, out_type=int)
         if 1 not in ids:
@@ -60,17 +89,12 @@ def select_answer_tokens(sp, answer: str, budget: int) -> tuple[list[int], str]:
 
     capped_ids = all_ids[:limit]
     capped_text = sp.decode(capped_ids)
-    # Select the last sentence-ending punctuation in the capped text.
     matches = list(re.finditer(r'[.!?](?:["”’\')\]]*)(?:\s+|$)', capped_text))
     if matches:
-        boundary = matches[-1].end()
-        clean_text = capped_text[:boundary].strip()
+        clean_text = capped_text[:matches[-1].end()].strip()
         clean_ids = sp.encode(clean_text, out_type=int)
         if MIN_ANSWER_TOKENS <= len(clean_ids) <= limit:
             return clean_ids, "sentence_boundary"
-
-    # Legal/OCR text may have no reliable punctuation; preserve the token cap
-    # and explicitly mark the answer as cut off.
     return capped_ids, "hard_token_cap"
 
 
@@ -88,11 +112,7 @@ def build_sequence(sp, question: str, answer: str):
         return prefix, [], [], len(prefix_ids), answer_ids, truncation
 
     ids = prefix_ids + answer_ids + [EOS_ID]
-    labels = (
-        [-100] * (len(prefix_ids) - 1)
-        + answer_ids
-        + [EOS_ID, -100]
-    )
+    labels = [-100] * (len(prefix_ids) - 1) + answer_ids + [EOS_ID, -100]
     return prefix, ids, labels, len(prefix_ids), answer_ids, truncation
 
 
@@ -104,7 +124,7 @@ def main():
         "max_answer_tokens": MAX_ANSWER_TOKENS,
         "one_example_per_source_record": True,
         "act_and_section_in_prompt": True,
-        "sentence_boundary_truncation": True,
+        "section_answer_cleanup": True,
         "external_llm_used": False,
         "pretrained_model_used": False,
         "splits": {},
@@ -114,16 +134,23 @@ def main():
         rows = load(SOURCE_DIR / f"{split}.jsonl")
         out, unk_prompt, skipped = [], 0, 0
         truncation_counts = {"complete": 0, "sentence_boundary": 0, "hard_token_cap": 0}
+        cleanup_counts = {
+            "target_section_extracted": 0,
+            "target_section_marker_not_found": 0,
+            "target_section_body_empty": 0,
+        }
 
         for row in rows:
             act_title = extract_act_title(row)
-            section = str(row.get("section", "Unknown"))
+            section = str(row.get("section", "Unknown")).strip()
             original_question = " ".join(str(row["question"]).split())
             question = (
                 f"Act: {act_title}. Section: {section}. "
                 f"Question: {original_question}"
             )
-            answer_source = " ".join(str(row["answer"]).split())
+            raw_answer = " ".join(str(row["answer"]).split())
+            answer_source, cleanup_status = clean_section_answer(raw_answer, section)
+            cleanup_counts[cleanup_status] += 1
 
             template, ids, labels, prompt_length, answer_ids, truncation = build_sequence(
                 sp, question, answer_source
@@ -135,7 +162,6 @@ def main():
             answer = sp.decode(answer_ids)
             unk_prompt += sum(token == 1 for token in ids[:prompt_length])
             truncation_counts[truncation] += 1
-
             out.append({
                 "input_ids": ids,
                 "labels": labels,
@@ -151,6 +177,7 @@ def main():
                 "chunk_count": 1,
                 "answer_tokens": len(answer_ids),
                 "answer_truncation": truncation,
+                "answer_cleanup": cleanup_status,
                 "prompt_template": template,
             })
 
@@ -163,19 +190,18 @@ def main():
             "records": len(out),
             "source_records": len(rows),
             "skipped_short_answers": skipped,
+            "answer_cleanup_counts": cleanup_counts,
             "answer_truncation_counts": truncation_counts,
             "prompt_unk_tokens": unk_prompt,
             "prompt_tokens": sum(row["prompt_length"] for row in out),
             "supervised_tokens": sum(
                 sum(token != -100 for token in row["labels"]) for row in out
             ),
-            "max_sequence_tokens": max(
-                (len(row["input_ids"]) for row in out), default=0
-            ),
+            "max_sequence_tokens": max((len(row["input_ids"]) for row in out), default=0),
         }
         print(
             f"{split}: {len(out):,} records; skipped {skipped}; "
-            f"prompt UNK {unk_prompt:,}; truncation {truncation_counts}"
+            f"cleanup {cleanup_counts}; truncation {truncation_counts}"
         )
 
     (OUTPUT_DIR / "summary.json").write_text(
