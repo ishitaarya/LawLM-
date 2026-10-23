@@ -72,19 +72,18 @@ def clean_section_answer(answer: str, section: str) -> tuple[str, str]:
         if matches:
             body = body[:min(m.start() for m in matches)].strip()
 
-    # Remove an immediately duplicated copy of the provision opening. This
-    # corpus often repeats the first sentence after the explicit Section N:.
-    sentence_end = re.search(r"[.!?](?:[”’\"'\]]*)?(?:\s+|$)", body)
-    if sentence_end:
-        first_sentence = body[:sentence_end.end()].strip()
-        remainder = body[sentence_end.end():].lstrip()
-        duplicate_prefix = re.compile(
-            rf"^{re.escape(section_value)}\.\s*{re.escape(first_sentence)}",
-            flags=re.IGNORECASE,
-        )
-        duplicate = duplicate_prefix.match(remainder)
-        if duplicate:
-            body = first_sentence + remainder[duplicate.end():]
+    # Remove the common OCR pattern where the section opening is repeated
+    # after a bare numbered marker, e.g. "law 5. All duties ...".
+    duplicate_pattern = re.compile(
+        rf"^(.*?)\\s+{re.escape(section_value)}\\.\\s+(.+)$",
+        flags=re.IGNORECASE,
+    )
+    duplicate = duplicate_pattern.match(body)
+    if duplicate:
+        opening = duplicate.group(1).strip()
+        repeated = duplicate.group(2).strip()
+        if opening and repeated.lower().startswith(opening.lower()):
+            body = opening + repeated[len(opening):]
 
     body = re.sub(r"\s+", " ", body).strip()
     if len(body) < 30:
