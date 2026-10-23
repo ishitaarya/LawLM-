@@ -85,12 +85,22 @@ def clean_section_answer(answer: str, section: str) -> tuple[str, str]:
         if opening and repeated.lower().startswith(opening.lower()):
             body = opening + repeated[len(opening):]
 
-    # Apply only high-confidence OCR repairs observed in this corpus.
+    # Remove an embedded bold legal heading before the next provision text.
+    # Example: "... in accordance with law. **Legalization ... Indemnity.** And all officers ..."
+    body = re.sub(
+        r"\s+\*\*[^*]{1,120}\*\*\s+(?=(?:And|But|The|No|Any|All|Every|Nothing|Provided)\b)",
+        " ",
+        body,
+        flags=re.IGNORECASE,
+    )
+
+    # Conservative OCR repairs observed in this corpus. Literal replacements
+    # are intentional here because these defects occur inside merged OCR tokens.
     body = re.sub(r"\ba11\b", "all", body, flags=re.IGNORECASE)
-    body = re.sub(r"\bifthis\b", "if this", body, flags=re.IGNORECASE)
-    body = re.sub(r"\brespectof\b", "respect of", body, flags=re.IGNORECASE)
-    body = re.sub(r"\banyof\b", "any of", body, flags=re.IGNORECASE)
-    body = re.sub(r"\bof(the)\b", r"of \1", body, flags=re.IGNORECASE)
+    body = body.replace("ifthis", "if this").replace("Ifthis", "If this")
+    body = body.replace("respectof", "respect of").replace("Respectof", "Respect of")
+    body = body.replace("anyof", "any of").replace("Anyof", "Any of")
+    body = body.replace("ofthe", "of the").replace("Ofthe", "Of the")
     body = re.sub(r" +", " ", body).strip()
     if len(body) < 30:
         return "", "target_section_body_too_short_rejected"
