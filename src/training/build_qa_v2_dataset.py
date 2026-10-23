@@ -86,11 +86,12 @@ def clean_section_answer(answer: str, section: str) -> tuple[str, str]:
             body = opening + repeated[len(opening):]
 
     # Apply only high-confidence OCR repairs observed in this corpus.
-    body = re.sub("a11", "all", body, flags=re.IGNORECASE)
-    body = re.sub("ifthis", "if this", body, flags=re.IGNORECASE)
-    body = re.sub("respectof", "respect of", body, flags=re.IGNORECASE)
-    body = re.sub("anyof", "any of", body, flags=re.IGNORECASE)
-    body = re.sub(" +", " ", body).strip()
+    body = re.sub(r"\\ba11\\b", "all", body, flags=re.IGNORECASE)
+    body = re.sub(r"\\bifthis\\b", "if this", body, flags=re.IGNORECASE)
+    body = re.sub(r"\\brespectof\\b", "respect of", body, flags=re.IGNORECASE)
+    body = re.sub(r"\\banyof\\b", "any of", body, flags=re.IGNORECASE)
+    body = re.sub(r"\\bof(the)\\b", r"of \\1", body, flags=re.IGNORECASE)
+    body = re.sub(r" +", " ", body).strip()
     if len(body) < 30:
         return "", "target_section_body_too_short_rejected"
     # Do not train on obvious Act metadata or a section heading left in the body.
