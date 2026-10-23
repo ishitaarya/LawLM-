@@ -75,7 +75,7 @@ def clean_section_answer(answer: str, section: str) -> tuple[str, str]:
     # Remove the common OCR pattern where the section opening is repeated
     # after a bare numbered marker, e.g. "law 5. All duties ...".
     duplicate_pattern = re.compile(
-        rf"^(.*?)\\s+{re.escape(section_value)}\\.\\s+(.+)$",
+        rf"^(.*?)\s+{re.escape(section_value)}\.\s+(.+)$",
         flags=re.IGNORECASE,
     )
     duplicate = duplicate_pattern.match(body)
@@ -160,8 +160,10 @@ def main():
         truncation_counts = {"complete": 0, "sentence_boundary": 0, "hard_token_cap": 0}
         cleanup_counts = {
             "target_section_extracted": 0,
-            "target_section_marker_not_found": 0,
-            "target_section_body_empty": 0,
+            "target_section_marker_not_found_rejected": 0,
+            "target_section_body_empty_rejected": 0,
+            "target_section_body_too_short_rejected": 0,
+            "target_section_residual_metadata_rejected": 0,
         }
 
         for row in rows:
