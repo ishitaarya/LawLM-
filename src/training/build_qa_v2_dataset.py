@@ -177,6 +177,9 @@ def main():
             raw_answer = " ".join(str(row["answer"]).split())
             answer_source, cleanup_status = clean_section_answer(raw_answer, section)
             cleanup_counts[cleanup_status] += 1
+            if not answer_source:
+                skipped += 1
+                continue
 
             template, ids, labels, prompt_length, answer_ids, truncation = build_sequence(
                 sp, question, answer_source
