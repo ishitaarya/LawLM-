@@ -58,19 +58,29 @@ def clean_section_answer(answer: str, section: str) -> tuple[str, str]:
     if not body:
         return "", "target_section_body_empty_rejected"
 
-    # Stop at the next numbered provision, including headings whose OCR/markup
-    # places a title between Markdown markers and the section number.
+    # Stop at the next explicit section marker, or at a likely numbered
+    # provision heading. OCR sources use both plain "20." and bold "**20.**".
     numeric = re.fullmatch(r"(\d+)[A-Za-z]?", section_value)
     if numeric:
-        next_number = str(int(numeric.group(1)) + 1)
-        next_patterns = [
-            rf"\s+(?:>\s*)?(?:\*\*[^*]{{1,100}}\*\*\s*)?{re.escape(next_number)}\.\s+",
-            rf"\s+Section\s*[:] ?\s*{re.escape(next_number)}\s*[:.]\s*".replace("[:] ?", "[:]?"),
-        ]
-        matches = [m for pattern in next_patterns
-                   if (m := re.search(pattern, body, flags=re.IGNORECASE))]
-        if matches:
-            body = body[:min(m.start() for m in matches)].strip()
+        target_number = int(numeric.group(1))
+        explicit = re.search(
+            r"\s+Section\s*:?\s*(\d+[A-Za-z]?)\s*[:.]\s*",
+            body,
+            flags=re.IGNORECASE,
+        )
+        candidates = []
+        if explicit:
+            explicit_num = re.match(r"(\d+)", explicit.group(1))
+            if explicit_num and int(explicit_num.group(1)) > target_number:
+                candidates.append(explicit)
+        for provision in re.finditer(
+            r"\s+(?:>\s*)?(?:\*\*)?(\d+)[A-Za-z]?(?:\*\*)?\.\s+(?=[A-Z])",
+            body,
+        ):
+            if int(provision.group(1)) > target_number:
+                candidates.append(provision)
+        if candidates:
+            body = body[:min(m.start() for m in candidates)].strip()
 
     # Remove the common OCR pattern where the section opening is repeated
     # after a bare numbered marker, e.g. "law 5. All duties ...".
