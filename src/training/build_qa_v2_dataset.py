@@ -85,6 +85,11 @@ def clean_section_answer(answer: str, section: str) -> tuple[str, str]:
                 candidates.append(provision)
         if candidates:
             body = body[:min(m.start() for m in candidates)].strip()
+            # A provision boundary should normally follow a complete clause.
+            # If extraction stops mid-word or without terminal punctuation,
+            # reject the fragment rather than training on a misleading answer.
+            if not re.search(r"[.!?;:][\"'’”)}\]]*$", body):
+                return "", "target_section_incomplete_before_next_provision_rejected"
 
     # Remove the common OCR pattern where the section opening is repeated
     # after a bare numbered marker, e.g. "law 5. All duties ...".
@@ -198,6 +203,7 @@ def main():
             "target_section_body_empty_rejected": 0,
             "target_section_body_too_short_rejected": 0,
             "target_section_residual_metadata_rejected": 0,
+            "target_section_incomplete_before_next_provision_rejected": 0,
         }
 
         for row in rows:
