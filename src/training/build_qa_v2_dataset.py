@@ -37,6 +37,36 @@ def extract_act_title(row: dict) -> str:
     return str(row.get("act_id", "Unknown Act"))
 
 
+def has_obvious_ocr_corruption(text: str) -> bool:
+    """Flag clear OCR debris without trying to auto-correct legal wording.
+
+    This deliberately catches high-confidence artifacts (replacement glyphs,
+    tilde-corrupted words, repeated punctuation inside words, and isolated
+    scan fragments). It is not a legal-accuracy classifier: plausible-looking
+    OCR substitutions still require source review.
+    """
+    if "\\ufffd" in text or "\\u25a1" in text:
+        return True
+
+    hard_artifact_patterns = (
+        r"\\b[A-Za-z]{2,}~[A-Za-z]*\\b",       # e.g. Collecto~, Rcgulatio~zs
+        r"\\b[A-Za-z]{2,}[,;:]{2,}",            # e.g. pow,,
+        r"\\b[A-Za-z]{2,}[-][ ]+(?=[A-Za-z])",  # broken scan/line fragments
+    )
+    if any(re.search(pattern, text) for pattern in hard_artifact_patterns):
+        return True
+
+    # Repeated OCR noise in one answer is stronger evidence than a single
+    # unusual token. Avoid broad spelling heuristics that could alter legal terms.
+    noisy_fragments = re.findall(
+        r"(?<![A-Za-z])(?:[A-Z]{1,2}\\s+){3,}[A-Z0-9$]{1,3}(?![A-Za-z])"
+        r"|\\b[A-Za-z]{2,}[_]{1,}[A-Za-z]{1,}\\b"
+        r"|\\b[A-Za-z]{2,}\\d[A-Za-z]{2,}\\b",
+        text,
+    )
+    return len(noisy_fragments) >= 2
+
+
 def clean_section_answer(answer: str, section: str) -> tuple[str, str]:
     """Extract a target provision conservatively; reject unidentifiable answers.
 
@@ -124,6 +154,8 @@ def clean_section_answer(answer: str, section: str) -> tuple[str, str]:
     body = body.replace("otherproceeding", "other proceeding")
     body = body.replace("of, British Burma", "of British Burma")
     body = re.sub(r" +", " ", body).strip()
+    if has_obvious_ocr_corruption(body):
+        return "", "target_section_obvious_ocr_corruption_rejected"
     if len(body) < 30:
         return "", "target_section_body_too_short_rejected"
     # Do not train on obvious Act metadata or a section heading left in the body.
@@ -204,6 +236,7 @@ def main():
             "target_section_body_too_short_rejected": 0,
             "target_section_residual_metadata_rejected": 0,
             "target_section_incomplete_before_next_provision_rejected": 0,
+            "target_section_obvious_ocr_corruption_rejected": 0,
         }
 
         for row in rows:
