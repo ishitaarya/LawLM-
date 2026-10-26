@@ -40,28 +40,24 @@ def extract_act_title(row: dict) -> str:
 def has_obvious_ocr_corruption(text: str) -> bool:
     """Flag clear OCR debris without trying to auto-correct legal wording.
 
-    This deliberately catches high-confidence artifacts (replacement glyphs,
-    tilde-corrupted words, repeated punctuation inside words, and isolated
-    scan fragments). It is not a legal-accuracy classifier: plausible-looking
-    OCR substitutions still require source review.
+    This catches high-confidence artifacts only. Plausible-looking OCR
+    substitutions still require source review.
     """
-    if "\\ufffd" in text or "\\u25a1" in text:
+    if "\ufffd" in text or "\u25a1" in text:
         return True
 
     hard_artifact_patterns = (
-        r"\\b[A-Za-z]{2,}~[A-Za-z]*\\b",       # e.g. Collecto~, Rcgulatio~zs
-        r"\\b[A-Za-z]{2,}[,;:]{2,}",            # e.g. pow,,
-        r"\\b[A-Za-z]{2,}[-][ ]+(?=[A-Za-z])",  # broken scan/line fragments
+        r"\b[A-Za-z]{2,}~[A-Za-z]*\b",       # e.g. Collecto~, Rcgulatio~zs
+        r"\b[A-Za-z]{2,}[,;:]{2,}",          # e.g. pow,,
+        r"\b[A-Za-z]{2,}-\s+(?=[A-Za-z])",   # broken scan/line fragments
     )
     if any(re.search(pattern, text) for pattern in hard_artifact_patterns):
         return True
 
-    # Repeated OCR noise in one answer is stronger evidence than a single
-    # unusual token. Avoid broad spelling heuristics that could alter legal terms.
     noisy_fragments = re.findall(
-        r"(?<![A-Za-z])(?:[A-Z]{1,2}\\s+){3,}[A-Z0-9$]{1,3}(?![A-Za-z])"
-        r"|\\b[A-Za-z]{2,}[_]{1,}[A-Za-z]{1,}\\b"
-        r"|\\b[A-Za-z]{2,}\\d[A-Za-z]{2,}\\b",
+        r"(?<![A-Za-z])(?:[A-Z]{1,2}\s+){3,}[A-Z0-9$]{1,3}(?![A-Za-z])"
+        r"|\b[A-Za-z]{2,}_[A-Za-z]{1,}\b"
+        r"|\b[A-Za-z]{2,}\d[A-Za-z]{2,}\b",
         text,
     )
     return len(noisy_fragments) >= 2
