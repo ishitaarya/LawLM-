@@ -47,7 +47,7 @@ def has_obvious_ocr_corruption(text: str) -> bool:
         return True
 
     hard_artifact_patterns = (
-        r"\b[A-Za-z]{2,}~[A-Za-z]*\b",       # e.g. Collecto~, Rcgulatio~zs
+        r"\b[A-Za-z]{2,}~[A-Za-z]*",       # e.g. Collecto~, Rcgulatio~zs
         r"\b[A-Za-z]{2,}[,;:]{2,}",          # e.g. pow,,
         r"\b[A-Za-z]{2,}-\s+(?=[A-Za-z])",   # broken scan/line fragments
     )
