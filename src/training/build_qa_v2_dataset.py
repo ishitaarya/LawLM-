@@ -60,7 +60,24 @@ def has_obvious_ocr_corruption(text: str) -> bool:
         r"|\b[A-Za-z]{2,}\d[A-Za-z]{2,}\b",
         text,
     )
-    return len(noisy_fragments) >= 2
+    if len(noisy_fragments) >= 2:
+        return True
+
+    # Repeated long spans are usually duplicated OCR/page-extraction debris.
+    if re.search(r"(.{40,150})\1", text):
+        return True
+
+    # Repeated identical words three or more times are common in broken
+    # OCR tables/forms (including Devanagari text); do not guess repairs.
+    if re.search(r"(?<!\w)([\w\u0900-\u097F]{2,})(?:\s+\1){2,}(?!\w)", text):
+        return True
+
+    # Dense table extraction debris: repeated pipes or HTML line breaks
+    # embedded in a provision indicate a malformed OCR/table conversion.
+    if text.count("|") >= 8 or text.count("<br") >= 4:
+        return True
+
+    return False
 
 
 def clean_section_answer(answer: str, section: str) -> tuple[str, str]:
