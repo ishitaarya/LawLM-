@@ -50,6 +50,9 @@ def has_obvious_ocr_corruption(text: str) -> bool:
         r"\b[A-Za-z]{2,}~[A-Za-z]*",       # e.g. Collecto~, Rcgulatio~zs
         r"\b[A-Za-z]{2,}[,;:]{2,}",          # e.g. pow,,
         r"\b[A-Za-z]{2,}-\s+(?=[A-Za-z])",   # broken scan/line fragments
+        r"\b(?:wtiler|gaseR|Rcgulatio\w*|R,qistered|tolss|thu|imd)\b",
+        r"\b(?:ol|ofi)\b(?=\s+(?:Government|accidents|fire-areas|records))",
+        r"\.{2,}\s*,{1,}\s*\.{2,}",       # damaged schedule/table leaders
     )
     if any(re.search(pattern, text) for pattern in hard_artifact_patterns):
         return True
