@@ -25,15 +25,27 @@ def validate_sections(sections: list[dict[str, Any]]) -> dict[str, Any]:
         for number, item in zip(numbers, sections)
         if not str(item.get("text", "")).strip()
     ]
-    invalid_ranges = [
-        {
-            "section_number": item.get("section_number"),
-            "start_page": item.get("page_number"),
-            "end_page": item.get("end_page_number"),
-        }
-        for item in sections
-        if int(item.get("end_page_number", 0)) < int(item.get("page_number", 0))
-    ]
+    invalid_ranges = []
+    page_refs_outside_range = []
+    for item in sections:
+        try:
+            start_page = int(item.get("page_number", 0))
+            end_page = int(item.get("end_page_number", 0))
+        except (TypeError, ValueError):
+            start_page, end_page = 0, 0
+        if start_page < 1 or end_page < start_page:
+            invalid_ranges.append({
+                "section_number": item.get("section_number"),
+                "start_page": item.get("page_number"),
+                "end_page": item.get("end_page_number"),
+            })
+            continue
+        try:
+            source_pages = [int(page) for page in item.get("source_pages", [])]
+        except (TypeError, ValueError):
+            source_pages = []
+        if any(page < start_page or page > end_page for page in source_pages):
+            page_refs_outside_range.append(item.get("section_number"))
     missing_page_provenance = [
         item.get("section_number")
         for item in sections
@@ -67,7 +79,7 @@ def validate_sections(sections: list[dict[str, Any]]) -> dict[str, Any]:
                     and bool(str(span.get("text", "")).strip())
                     and int(span["page_number"]) in item.get("source_pages", [])
                 )
-            except (TypeError, ValueError, KeyError):
+            except (TypeError, ValueError, KeyError, AttributeError):
                 valid_span = False
             if not valid_span:
                 invalid_source_spans.append(item.get("section_number"))
@@ -88,6 +100,7 @@ def validate_sections(sections: list[dict[str, Any]]) -> dict[str, Any]:
         "invalid_page_ranges": invalid_ranges,
         "sections_missing_page_provenance": missing_page_provenance,
         "sections_with_unsorted_or_duplicate_page_refs": page_order_errors,
+        "sections_with_page_refs_outside_declared_range": page_refs_outside_range,
         "sections_missing_heading_line_provenance": missing_heading_provenance,
         "sections_with_invalid_body_line_provenance": invalid_source_spans,
         "amendment_annotation_count": amendment_count,
@@ -101,6 +114,7 @@ def validate_sections(sections: list[dict[str, Any]]) -> dict[str, Any]:
             "all_page_ranges_valid": not invalid_ranges,
             "all_sections_have_page_provenance": not missing_page_provenance,
             "page_references_sorted_and_unique": not page_order_errors,
+            "all_page_refs_within_declared_ranges": not page_refs_outside_range,
             "all_sections_have_heading_line_provenance": not missing_heading_provenance,
             "all_body_spans_have_valid_page_line_provenance": not invalid_source_spans,
         },
