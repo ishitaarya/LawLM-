@@ -11,8 +11,8 @@ class LegalValidationTests(unittest.TestCase):
         return {
             "section_number": number,
             "section_title": "Test heading",
-            "page_number": pages[0],
-            "end_page_number": pages[-1],
+            "page_number": pages[0] if pages else 10,
+            "end_page_number": pages[-1] if pages else 10,
             "source_pages": pages,
             "text": text,
             "amendments": [],
@@ -52,6 +52,11 @@ class LegalValidationTests(unittest.TestCase):
         section["end_page_number"] = 9
         report = validate_sections([section])
         self.assertEqual(len(report["invalid_page_ranges"]), 1)
+
+    def test_missing_section_number_is_reported(self):
+        report = validate_sections([self._section(number="")])
+        self.assertEqual(report["missing_section_number_count"], 1)
+        self.assertFalse(report["checks"]["all_sections_have_numbers"])
 
 
 if __name__ == "__main__":
