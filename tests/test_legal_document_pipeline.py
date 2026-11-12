@@ -10,8 +10,8 @@ class LegalDocumentPipelineTests(unittest.TestCase):
             "source_file": "sample.pdf",
             "page_number": 10,
             "text": (
-                "It is hereby enacted as follows:\\n"
-                "1. Short title.—This Act may be called the Sample Act.\\n"
+                "It is hereby enacted as follows:\n"
+                "1. Short title.—This Act may be called the Sample Act.\n"
                 "It extends to the whole of India."
             ),
         }]
