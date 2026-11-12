@@ -18,21 +18,21 @@ DEFAULT_SOURCE = Path("data/documents/Indian_Contract_Act_1872.jsonl")
 
 # Examples: "3.Communication ... . —The" and "1. Short title.—This Act..."
 _SECTION_LINE = re.compile(
-    r"^\\s*(?P<number>\\d{1,3}[A-Za-z]?)\\s*\\.\\s*"
-    r"(?P<heading>.+?)\\s*(?:[.。]\\s*[—–-]|[—–])\\s*(?P<body>.*)$"
+    r"^\s*(?P<number>\d{1,3}[A-Za-z]?)\s*\.\s*"
+    r"(?P<heading>.+?)\s*(?:[.。]\s*[—–-]|[—–])\s*(?P<body>.*)$"
 )
 _CHAPTER_LINE = re.compile(
-    r"^\\s*CHAPTER\\s+(?P<number>[IVXLCDM]+)\\s*$",
+    r"^\s*CHAPTER\s+(?P<number>[IVXLCDM]+)\s*$",
     re.IGNORECASE,
 )
 _AMENDMENT_PATTERNS = (
-    re.compile(r"^\\s*STATE\\s+AMENDMENT\\s*$", re.IGNORECASE),
-    re.compile(r"^\\s*CENTRAL\\s+AMENDMENT\\s*$", re.IGNORECASE),
-    re.compile(r"^\\s*AMENDMENT\\s+OF\\s+SECTION\\b.*$", re.IGNORECASE),
-    re.compile(r"^\\s*\\[\\s*Vide\\b.*$", re.IGNORECASE),
+    re.compile(r"^\s*STATE\s+AMENDMENT\s*$", re.IGNORECASE),
+    re.compile(r"^\s*CENTRAL\s+AMENDMENT\s*$", re.IGNORECASE),
+    re.compile(r"^\s*AMENDMENT\s+OF\s+SECTION\b.*$", re.IGNORECASE),
+    re.compile(r"^\s*\[\s*Vide\b.*$", re.IGNORECASE),
 )
 _FOOTNOTE_START = re.compile(
-    r"^\\s*\\d+\\.\\s*(?:For\\b|See\\b|Subs\\.\\s+by\\b|The words\\b)",
+    r"^\s*\d+\.\s*(?:For\b|See\b|Subs\.\s+by\b|The words\b)",
     re.IGNORECASE,
 )
 
@@ -59,7 +59,7 @@ class PageAnalysis:
 
 def normalize_line(line: str) -> str:
     """Collapse horizontal whitespace while retaining the original elsewhere."""
-    return re.sub(r"[ \\t]+", " ", line).strip()
+    return re.sub(r"[ \t]+", " ", line).strip()
 
 
 def load_pages(path: Path = DEFAULT_SOURCE) -> list[dict[str, Any]]:
@@ -109,10 +109,10 @@ def find_body_start_page(pages: Iterable[dict[str, Any]]) -> int | None:
     for page in pages:
         text = page["text"]
         if re.search(
-            r"IT\\s+IS\\s+HEREBY\\s+ENACTED\\s+AS\\s+FOLLOWS",
+            r"IT\s+IS\s+HEREBY\s+ENACTED\s+AS\s+FOLLOWS",
             text,
             re.IGNORECASE,
-        ) or re.search(r"PREAMBLE\\s*[—–-]\\s*WHEREAS", text, re.IGNORECASE):
+        ) or re.search(r"PREAMBLE\s*[—–-]\s*WHEREAS", text, re.IGNORECASE):
             return int(page["page_number"])
     return None
 
@@ -159,8 +159,6 @@ def detect_section_candidates(
         if not heading:
             continue
 
-        # Numbered headings are only candidates; this is not a legal-number
-        # validity check. Alphanumeric numbers such as 19A are preserved.
         candidate = SectionCandidate(
             section_number=number,
             heading_text=heading,
