@@ -57,3 +57,6 @@ jobs:
 
       - name: Run legal QA orchestration integration tests
         run: python -m unittest discover -s tests -p "test_legal_qa_orchestration.py" -v
+
+      - name: Run real-data preflight tests
+        run: python -m unittest discover -s tests -p "test_legal_data_preflight.py" -v
