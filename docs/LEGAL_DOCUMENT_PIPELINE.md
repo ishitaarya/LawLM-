@@ -415,3 +415,26 @@ the generator; (3) empty generation treated as abstention; and (4) refusal to
 overwrite an existing run file. All legal text and benchmark records in these
 tests are synthetic fixtures. Passing CI demonstrates software-path
 integration only—not legal correctness, real-PDF quality, or model quality.
+
+
+## Real-data preflight (read-only)
+
+Before running the actual Indian Contract Act source and QA v2 audits, verify
+that the PDF, extracted page JSONL, and all three QA split files are present.
+The preflight fingerprints each input with SHA-256, runs the existing page and
+QA structural audits, and checks for duplicate questions/records across
+train, validation, and test. It also reports legal sections shared across
+splits for human review; section overlap is not automatically treated as a
+failure because the same provision may legitimately support multiple examples.
+
+Run from the repository root:
+
+```powershell
+python -m src.training.legal_data_preflight --pdf "data/raw/Indian_Contract_Act_1872.pdf" --pages "data/documents/Indian_Contract_Act_1872.jsonl" --train "data/qa_v2/train.jsonl" --validation "data/qa_v2/validation.jsonl" --test "data/qa_v2/test.jsonl" --output "reports/Indian_Contract_Act_1872_real_data_preflight.json"
+```
+
+The report output must be a new path. The checker is read-only: it does not
+move, rename, filter, repair, regenerate, or overwrite any source file. Missing
+inputs are reported rather than treated as successful audits. A passing
+structural preflight does not verify legal accuracy, OCR fidelity, authoritative
+currency, human review, or training readiness. It never starts training.
