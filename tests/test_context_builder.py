@@ -24,6 +24,8 @@ class ContextBuilderTests(unittest.TestCase):
         self.assertIn("Pages: 12-13", context)
         self.assertIn("p12:L4; p13:L2", context)
         self.assertIn("Section status: unknown", context)
+        self.assertIn("Review required: True", context)
+        self.assertIn("OCR anomalies=False", context)
 
     def test_empty_results_are_not_presented_as_evidence(self):
         context = build_context("Question", [])
