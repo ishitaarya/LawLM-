@@ -105,7 +105,7 @@ class LegalSectionAssemblerTests(unittest.TestCase):
     def test_chapter_heading_changes_context_only_for_following_sections(self):
         pages = [{
             "page_number": 15,
-            "text": "1. Short title.—First provision.\\n"
+            "text": "1. Short title.—First provision.\n"
             "CHAPTER II\\n"
             "10. What agreements are contracts.—Second provision.",
         }]
