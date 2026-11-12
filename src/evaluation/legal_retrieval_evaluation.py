@@ -27,6 +27,8 @@ def evaluate_retrieval(
 ) -> dict[str, Any]:
     if not benchmark:
         raise ValueError("Benchmark must contain at least one query.")
+    if not chunks:
+        raise ValueError("Legal chunk collection must not be empty.")
     if not cutoffs or any(k < 1 for k in cutoffs):
         raise ValueError("All retrieval cutoffs must be positive integers.")
 
@@ -37,11 +39,16 @@ def evaluate_retrieval(
     valid_queries = 0
 
     for index, case in enumerate(benchmark, start=1):
+        if not isinstance(case, dict):
+            query_results.append({"case": index, "error": "benchmark_record_not_object"})
+            continue
         query = str(case.get("query", "")).strip()
         expected = case.get("expected_sections", [])
         if isinstance(expected, str):
             expected = [expected]
-        expected_set = {str(value).upper() for value in expected}
+        if not isinstance(expected, list):
+            expected = []
+        expected_set = {str(value).upper() for value in expected if str(value).strip()}
         if not query or not expected_set:
             query_results.append({
                 "case": index,
