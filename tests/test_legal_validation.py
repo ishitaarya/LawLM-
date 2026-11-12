@@ -79,6 +79,16 @@ class LegalValidationTests(unittest.TestCase):
         self.assertFalse(report["checks"]["all_sections_have_heading_line_provenance"])
         self.assertFalse(report["checks"]["all_body_spans_have_valid_page_line_provenance"])
 
+    def test_source_page_outside_declared_range_is_reported(self):
+        section = self._section()
+        section["source_pages"] = [9, 10]
+        section["page_number"] = 10
+        section["end_page_number"] = 10
+        section["source_spans"][0]["page_number"] = 9
+        report = validate_sections([section])
+        self.assertEqual(report["sections_with_page_refs_outside_declared_range"], ["1"])
+        self.assertFalse(report["checks"]["all_page_refs_within_declared_ranges"])
+
 
 if __name__ == "__main__":
     unittest.main()
