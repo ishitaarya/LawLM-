@@ -21,7 +21,7 @@ jobs:
         with:
           python-version: "3.11"
       - name: Compile modified source and tests
-        run: python -m compileall -q src/document src/training/qa_dataset_audit.py src/evaluation/legal_retrieval_evaluation.py tests
+        run: python -m compileall -q src/document src/training src/evaluation/legal_retrieval_evaluation.py src/evaluation/legal_retrieval_evaluation.py tests
       - name: Run legal source page audit tests
         run: python -m unittest discover -s tests -p "test_legal_source_audit.py" -v
       - name: Run legal parser tests
@@ -44,5 +44,7 @@ jobs:
         run: python -m unittest discover -s tests -p "test_legal_review.py" -v
       - name: Run legal training candidate gate tests
         run: python -m unittest discover -s tests -p "test_legal_training_gate.py" -v
+      - name: Run legal chunk provenance audit tests
+        run: python -m unittest discover -s tests -p "test_legal_chunk_provenance_audit.py" -v
       - name: Run legal retrieval evaluation tests
         run: python -m unittest discover -s tests -p "test_legal_retrieval_evaluation.py" -v
