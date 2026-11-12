@@ -15,10 +15,9 @@ from pathlib import Path
 import sentencepiece as spm
 import torch
 
-from src.document.context_builder import build_context
+from src.document.qa_orchestrator import run_legal_qa
 from src.document.retriever import build_index, load_chunks, search
 from src.generation.generate import load_model
-from src.evaluation.legal_run_logger import build_run_record, write_run_record_new
 
 DEFAULT_CHUNKS = Path("data/documents/Indian_Contract_Act_1872_chunks.jsonl")
 DEFAULT_CHECKPOINT = Path("checkpoints/lawsuit_llm_expanded_best.pt")
@@ -51,48 +50,50 @@ def answer_question(
     max_new_tokens: int = 80,
     temperature: float = 0.7,
     chunks_path: Path = DEFAULT_CHUNKS,
+    query_id: str | None = None,
+    evaluation_record_path: Path | None = None,
 ) -> tuple[str, list[dict], str]:
-    """Run retrieval, context construction, and LLM generation."""
+    """Run retrieval, context construction, generation, and optional logging."""
     if not chunks_path.exists():
         raise FileNotFoundError(f"Chunk file not found: {chunks_path}")
+    if top_k < 1:
+        raise ValueError("top_k must be at least 1.")
     chunks = load_chunks(chunks_path)
     if not chunks:
         raise RuntimeError("No legal chunks found.")
 
     idf, vectors = build_index(chunks)
-    results = search(query, chunks, idf, vectors, top_k=top_k)
 
-    context = build_context(query, results, max_chunks=top_k)
-    if not results:
-        safe_message = (
-            "I could not retrieve a relevant provision from the selected legal "
-            "document. I cannot provide an answer without supporting source text."
+    def retrieve(question: str, limit: int) -> list[dict]:
+        return search(question, chunks, idf, vectors, top_k=limit)
+
+    def generate(question: str, context: str) -> str:
+        if not DEFAULT_TOKENIZER.exists():
+            raise FileNotFoundError(f"Tokenizer not found: {DEFAULT_TOKENIZER}")
+        tokenizer = spm.SentencePieceProcessor(model_file=str(DEFAULT_TOKENIZER))
+        prompt = build_answer_prompt(question, context, tokenizer)
+        model = load_model(DEFAULT_CHECKPOINT)
+        ids = tokenizer.encode(prompt, out_type=int)
+        input_ids = torch.tensor([ids], dtype=torch.long, device=DEVICE)
+        generated = model.generate(
+            input_ids,
+            max_new_tokens=max_new_tokens,
+            temperature=temperature,
+            top_k=40,
+            repetition_penalty=1.15,
+            eos_token_id=tokenizer.eos_id(),
         )
-        return safe_message, results, context
+        generated_ids = generated[0].tolist()
+        return tokenizer.decode(generated_ids[len(ids):]).strip()
 
-    if not DEFAULT_TOKENIZER.exists():
-        raise FileNotFoundError(f"Tokenizer not found: {DEFAULT_TOKENIZER}")
-    tokenizer = spm.SentencePieceProcessor(model_file=str(DEFAULT_TOKENIZER))
-    prompt = build_answer_prompt(query, context, tokenizer)
-
-    model = load_model(DEFAULT_CHECKPOINT)
-    ids = tokenizer.encode(prompt, out_type=int)
-    input_ids = torch.tensor([ids], dtype=torch.long, device=DEVICE)
-
-    generated = model.generate(
-        input_ids,
-        max_new_tokens=max_new_tokens,
-        temperature=temperature,
-        top_k=40,
-        repetition_penalty=1.15,
-        eos_token_id=tokenizer.eos_id(),
+    return run_legal_qa(
+        query=query,
+        retrieve=retrieve,
+        generate=generate,
+        top_k=top_k,
+        query_id=query_id,
+        evaluation_record_path=evaluation_record_path,
     )
-
-    generated_ids = generated[0].tolist()
-    new_ids = generated_ids[len(ids):]
-    answer = tokenizer.decode(new_ids).strip()
-
-    return answer, results, context
 
 
 def main() -> None:
@@ -138,6 +139,8 @@ def main() -> None:
         max_new_tokens=args.max_new_tokens,
         temperature=args.temperature,
         chunks_path=args.chunks,
+        query_id=args.query_id,
+        evaluation_record_path=args.evaluation_record,
     )
 
     print("=" * 72)
@@ -170,11 +173,6 @@ def main() -> None:
     print(answer or "[No generated text]")
 
     if args.evaluation_record is not None:
-        abstained = not results or not answer.strip()
-        run_record = build_run_record(
-            args.query_id, answer, results, abstained
-        )
-        write_run_record_new(run_record, args.evaluation_record)
         print(f"Evaluation run record created: {args.evaluation_record}")
     print()
     print("Research/educational output only; not legal advice.")
