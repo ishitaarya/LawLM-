@@ -28,6 +28,11 @@ class LegalParserTests(unittest.TestCase):
         result = analyze_page(record, body_start_page=10)
         self.assertEqual(result.page_type, "table_of_contents_or_front_matter")
 
+    def test_missing_body_marker_is_not_assumed_to_be_contents(self):
+        record = {"page_number": 1, "text": "Unknown legal document"}
+        result = analyze_page(record, body_start_page=None)
+        self.assertEqual(result.page_type, "unclassified")
+
     def test_chapter_heading_is_detected(self):
         self.assertEqual(
             detect_chapter_headings("CHAPTER I\nOF CONTRACTS\nCHAPTER IV"),
@@ -47,6 +52,13 @@ class LegalParserTests(unittest.TestCase):
             "Power to set aside contract induced by undue influence",
         )
         self.assertEqual(found[0]["page_number"], 15)
+
+    def test_three_digit_alphanumeric_section_is_preserved(self):
+        found = detect_section_candidates(
+            "178A. Special provision.—Text of the provision.",
+            page_number=42,
+        )
+        self.assertEqual(found[0]["section_number"], "178A")
 
     def test_footnote_is_not_mistaken_for_section_heading(self):
         text = (
