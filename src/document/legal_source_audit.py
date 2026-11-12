@@ -12,8 +12,6 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from src.document.legal_parser import load_pages
-
 DEFAULT_SOURCE = Path("data/documents/Indian_Contract_Act_1872.jsonl")
 _REPLACEMENT_CHAR = "\ufffd"
 _CONTROL_CHARS = re.compile(r"[\x00-\x08\x0b\x0c\x0e-\x1f]")
