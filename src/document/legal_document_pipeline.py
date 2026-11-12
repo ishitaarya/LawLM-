@@ -31,6 +31,10 @@ def prepare_document_artifacts(
         body_start_page=body_start,
         repealed_sections=repealed_sections,
     )
+    if not sections:
+        raise ValueError(
+            "No legal section candidates were assembled; refusing to create empty outputs."
+        )
     report = validate_sections(sections)
 
     failed_checks = [
