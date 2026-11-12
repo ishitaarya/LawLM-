@@ -32,6 +32,20 @@ def evaluate_training_candidates(
             "issue": "manifest_integrity_failed",
             "details": manifest_report["issues"],
         })
+        return {
+            "report_type": "legal_training_candidate_gate",
+            "section_count": len(sections),
+            "candidate_section_indices": [],
+            "candidate_count": 0,
+            "blocked_count": len(sections),
+            "issues": issues,
+            "all_sections_passed": False,
+            "dataset_exported": False,
+            "training_started": False,
+            "legal_accuracy_verified": False,
+            "ready_for_training": False,
+            "note": "Manifest integrity failed; all sections are blocked.",
+        }
 
     for index, section in enumerate(sections):
         record = by_index.get(index)
