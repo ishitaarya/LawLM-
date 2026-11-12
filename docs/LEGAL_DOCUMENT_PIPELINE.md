@@ -105,6 +105,25 @@ on the configured tokenizer and checkpoint being available locally.
 
 The source PDF and page-level JSONL are user data and are not assumed to be present in GitHub. The automated tests use small synthetic fixtures. Full Indian Contract Act validation requires the actual PDF/page JSONL and manual comparison with an authoritative publication.
 
+
+## Supervised QA dataset audit
+
+The QA audit is read-only. It reports missing/empty fields, suspiciously short
+contexts or answers, answers that may be sentence-truncated, explicit hard
+token-truncation flags, duplicate questions, and JSON parsing errors. It does
+not delete records or rewrite the training dataset.
+
+```powershell
+python -m src.training.qa_dataset_audit --source "data/qa_v2/train.jsonl" --output "reports/qa_v2_train_audit.json"
+```
+
+Repeat for validation and test splits, using a different new report filename
+for each. The audit expects the canonical `question`, `context`, `answer`,
+and `section` fields. If the local QA v2 files use a different schema, inspect
+their field names before adapting the audit; do not rename or drop source data
+blindly. A clean structural report is not legal verification and never sets
+`ready_for_training` to true.
+
 ## Test suite
 
 ```powershell
