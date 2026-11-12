@@ -50,10 +50,15 @@ class LegalChunkerTests(unittest.TestCase):
     def test_chunking_preserves_review_and_annotation_flags(self):
         item = section(status="repealed")
         item["ocr_anomalies"] = [{"text": "1151."}]
+        item["amendments"] = [{"text": "State amendment text"}]
+        item["footnotes"] = [{"text": "Footnote text"}]
         chunks = create_legal_chunks([item], chunk_size=100, overlap=0)
         self.assertTrue(chunks[0]["review_required"])
         self.assertTrue(chunks[0]["has_ocr_anomalies"])
         self.assertEqual(chunks[0]["section_status"], "repealed")
+        self.assertEqual(chunks[0]["amendment_annotations"][0]["text"], "State amendment text")
+        self.assertEqual(chunks[0]["footnote_annotations"][0]["text"], "Footnote text")
+        self.assertEqual(chunks[0]["ocr_anomalies"][0]["text"], "1151.")
 
     def test_invalid_overlap_is_rejected(self):
         with self.assertRaises(ValueError):
