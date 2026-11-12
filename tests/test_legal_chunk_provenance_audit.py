@@ -88,8 +88,8 @@ class LegalChunkProvenanceAuditTests(unittest.TestCase):
     def test_chunk_without_candidate_section_is_blocked(self):
         section = self.section()
         manifest = self.approved_manifest(section)
+        section["section_status"] = "repealed"
         chunks = create_legal_chunks([section], chunk_size=200, overlap=0, review_manifest=manifest)
-        chunks[0]["section_status"] = "repealed"
         report = audit_chunk_provenance([section], chunks, manifest)
         self.assertIn("parent_section_not_training_candidate", [item["issue"] for item in report["issues"]])
 
