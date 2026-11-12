@@ -95,7 +95,7 @@ on the configured tokenizer and checkpoint being available locally.
 ## Manual review rules
 
 - Do not silently turn OCR strings such as `1151.` or `1161.` into Section 151 or 161. They are recorded as anomalies for human review.
-- Do not infer repeal status. Supply a verified repeal list only when it has been checked against an authoritative legal source.
+- Do not infer repeal status. Supply a verified repeal list only when it has been checked against an authoritative legal source. The CLI accepts repeated `--repealed-section 76` arguments for verified entries; omit this option when repeal status is not established.
 - Treat amendment text separately from the central Act text.
 - Keep footnotes and explanations as annotations until their relationship to the provision has been reviewed.
 - Review every section marked `review_required` before training or publishing.
