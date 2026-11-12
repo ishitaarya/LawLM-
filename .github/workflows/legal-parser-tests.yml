@@ -46,5 +46,7 @@ jobs:
         run: python -m unittest discover -s tests -p "test_legal_training_gate.py" -v
       - name: Run legal chunk provenance audit tests
         run: python -m unittest discover -s tests -p "test_legal_chunk_provenance_audit.py" -v
+      - name: Run legal QA dataset builder tests
+        run: python -m unittest discover -s tests -p "test_legal_qa_dataset_builder.py" -v
       - name: Run legal retrieval evaluation tests
         run: python -m unittest discover -s tests -p "test_legal_retrieval_evaluation.py" -v
