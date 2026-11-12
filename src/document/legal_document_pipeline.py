@@ -26,7 +26,16 @@ def prepare_document_artifacts(
     overlap: int = 150,
 ) -> tuple[list[dict[str, Any]], dict[str, Any], list[dict[str, Any]]]:
     """Build artifacts in memory and stop if structural validation fails."""
-    body_start = body_start_page or find_body_start_page(pages)
+    body_start = (
+        body_start_page
+        if body_start_page is not None
+        else find_body_start_page(pages)
+    )
+    if body_start is not None and (
+        body_start < 1
+        or not any(int(page["page_number"]) == body_start for page in pages)
+    ):
+        raise ValueError("body_start_page must match an existing positive source page.")
     if body_start is None:
         raise ValueError(
             "Could not identify the Act body start. Supply a manually verified "
