@@ -196,8 +196,13 @@ def assemble_document(
 ) -> list[dict[str, Any]]:
     """Load and assemble a page JSONL document without writing any files."""
     pages = load_pages(path)
+    body_start_page = find_body_start_page(pages)
+    if body_start_page is None:
+        raise ValueError(
+            "Could not identify the Act body start; refusing to parse front matter as provisions."
+        )
     return assemble_sections(
         pages,
-        body_start_page=find_body_start_page(pages),
+        body_start_page=body_start_page,
         repealed_sections=repealed_sections,
     )
