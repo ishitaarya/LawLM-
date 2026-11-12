@@ -23,7 +23,7 @@ _FOOTNOTE_START = re.compile(
     r"^\s*\d+\.\s*(?:For\b|See\b|Subs\.\s+by\b|The words\b)", re.IGNORECASE
 )
 _HEADING_SEPARATOR = re.compile(r"(?:[.。]\s*[—–-]|[—–])")
-_CHAPTER_LINE = re.compile(r"^\\s*CHAPTER\\s+([IVXLCDM]+)\\s*$", re.IGNORECASE)
+_CHAPTER_LINE = re.compile(r"^\s*CHAPTER\s+([IVXLCDM]+)\s*$", re.IGNORECASE)
 # Known scan artifacts in this source: a footnote marker can be fused with
 # section 151/161 (e.g. 1151./1161.). Never normalize these automatically.
 _OCR_SECTION_PREFIX = re.compile(r"^11(?:5|6)1\.\s*")
