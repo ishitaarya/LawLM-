@@ -24,6 +24,9 @@ _FOOTNOTE_START = re.compile(
     r"^\s*\d+\.\s*(?:For\b|See\b|Subs\.\s+by\b|The words\b)", re.IGNORECASE
 )
 _HEADING_SEPARATOR = re.compile(r"(?:[.。]\s*[—–-]|[—–])")
+# Known scan artifacts in this source: a footnote marker can be fused with
+# section 151/161 (e.g. 1151./1161.). Never normalize these automatically.
+_OCR_SECTION_PREFIX = re.compile(r"^11(?:5|6)1\.\s*")
 
 
 @dataclass
@@ -37,6 +40,7 @@ class AssembledSection:
     chapter: str | None = None
     amendments: list[dict[str, Any]] = field(default_factory=list)
     footnotes: list[dict[str, Any]] = field(default_factory=list)
+    ocr_anomalies: list[dict[str, Any]] = field(default_factory=list)
     section_status: str = "unknown"
     review_required: bool = True
 
@@ -106,6 +110,19 @@ def assemble_sections(
                 )
                 _append_text(current, _section_body(raw_line), page_number)
                 assembled.append(current)
+                continue
+
+            if _OCR_SECTION_PREFIX.match(line):
+                anomaly = {
+                    "page_number": page_number,
+                    "line_number": line_number,
+                    "text": line,
+                    "reason": "Possible footnote marker fused with section number; manual review required.",
+                }
+                if current is not None:
+                    current.ocr_anomalies.append(anomaly)
+                else:
+                    document_annotations.append({"type": "ocr_anomaly", **anomaly})
                 continue
 
             if _FOOTNOTE_START.match(line):
