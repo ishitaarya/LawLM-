@@ -14,6 +14,15 @@ class LegalValidationTests(unittest.TestCase):
             "page_number": pages[0] if pages else 10,
             "end_page_number": pages[-1] if pages else 10,
             "source_pages": pages,
+            "heading_source": {
+                "page_number": pages[0] if pages else 10,
+                "line_number": 1,
+                "raw_line": f"{number}. Test heading.—{text}",
+            },
+            "source_spans": (
+                [{"page_number": page, "line_number": 2, "text": text, "raw_line": text}
+                 for page in pages] if text else []
+            ),
             "text": text,
             "amendments": [],
             "footnotes": [],
@@ -57,6 +66,18 @@ class LegalValidationTests(unittest.TestCase):
         report = validate_sections([self._section(number="")])
         self.assertEqual(report["missing_section_number_count"], 1)
         self.assertFalse(report["checks"]["all_sections_have_numbers"])
+
+    def test_missing_heading_and_body_line_provenance_are_reported(self):
+        section = self._section()
+        section.pop("heading_source")
+        section["source_spans"] = [
+            {"page_number": 99, "line_number": 0, "text": ""}
+        ]
+        report = validate_sections([section])
+        self.assertEqual(report["sections_missing_heading_line_provenance"], ["1"])
+        self.assertEqual(report["sections_with_invalid_body_line_provenance"], ["1"])
+        self.assertFalse(report["checks"]["all_sections_have_heading_line_provenance"])
+        self.assertFalse(report["checks"]["all_body_spans_have_valid_page_line_provenance"])
 
 
 if __name__ == "__main__":
