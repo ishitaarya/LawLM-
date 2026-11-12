@@ -69,9 +69,26 @@ def build_context(
                     f"Section status: {status}",
                     f"Review required: {review_required}",
                     f"Annotations: {annotations}",
-                    f"Text: {text}",
                 ]
             )
+            for annotation in result.get("amendment_annotations", [])[:3]:
+                annotation_text = " ".join(str(annotation.get("text", "")).split())
+                if annotation_text:
+                    lines.append(
+                        "Separate amendment annotation (verify scope and currentness): "
+                        + annotation_text[:500]
+                    )
+            for annotation in result.get("footnote_annotations", [])[:3]:
+                annotation_text = " ".join(str(annotation.get("text", "")).split())
+                if annotation_text:
+                    lines.append("Separate footnote: " + annotation_text[:300])
+            for anomaly in result.get("ocr_anomalies", [])[:3]:
+                anomaly_text = " ".join(str(anomaly.get("text", "")).split())
+                if anomaly_text:
+                    lines.append(
+                        "OCR anomaly requiring manual review: " + anomaly_text[:200]
+                    )
+            lines.append(f"Text: {text}")
 
     lines.extend(
         [
