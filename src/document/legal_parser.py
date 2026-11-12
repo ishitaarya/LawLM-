@@ -119,7 +119,9 @@ def find_body_start_page(pages: Iterable[dict[str, Any]]) -> int | None:
 
 def classify_page(page_number: int, text: str, body_start_page: int | None) -> str:
     """Classify a page using the detected body transition, not a fixed page count."""
-    if body_start_page is None or page_number < body_start_page:
+    if body_start_page is None:
+        return "unclassified"
+    if page_number < body_start_page:
         return "table_of_contents_or_front_matter"
     if page_number == body_start_page:
         return "act_body_start"
