@@ -68,6 +68,35 @@ class LegalParserTests(unittest.TestCase):
         found = detect_section_candidates(text, page_number=10)
         self.assertEqual([item["section_number"] for item in found], ["2"])
 
+    def test_observed_indian_contract_act_heading_formats(self):
+        examples = [
+            ("1. Short title.—This Act may be called the Act.", "1"),
+            ("2. Interpretation-clause.—In this Act...", "2"),
+            ("3.Communication, acceptance and revocation of proposals. —The communication...", "3"),
+            ("4. Communication when complete .—The communication...", "4"),
+            ("5. Revocation of proposals and acceptances .—A proposal...", "5"),
+            ("8. Acceptance by performing conditions, or receiving consideration .—Performance...", "8"),
+            ("19A. Power to set aside contract.—Text.", "19A"),
+            ("178A. Special provision.—Text.", "178A"),
+        ]
+        for line, expected_number in examples:
+            with self.subTest(line=line):
+                found = detect_section_candidates(line, page_number=10)
+                self.assertEqual(len(found), 1)
+                self.assertEqual(found[0]["section_number"], expected_number)
+
+    def test_ocr_footnote_prefix_is_not_silently_repaired(self):
+        # In the scanned Act, 151/161 may appear as 1151./1161. due to
+        # a footnote marker. These must be flagged for review, not guessed.
+        self.assertEqual(
+            detect_section_candidates("1151. Special provision.—Text.", 44),
+            [],
+        )
+        self.assertEqual(
+            detect_section_candidates("1161. Special provision.—Text.", 45),
+            [],
+        )
+
     def test_amendment_markers_are_detected(self):
         text = (
             "STATE AMENDMENT\n"
