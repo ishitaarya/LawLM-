@@ -11,6 +11,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+from src.document.legal_review import section_text_hash, validate_review_manifest
+
 DEFAULT_INPUT = Path("data/processed/Indian_Contract_Act_1872_sections.jsonl")
 DEFAULT_OUTPUT = Path("data/processed/Indian_Contract_Act_1872_legal_chunks.jsonl")
 CHUNK_SIZE = 1200
@@ -90,12 +92,19 @@ def create_legal_chunks(
     *,
     chunk_size: int = CHUNK_SIZE,
     overlap: int = CHUNK_OVERLAP,
+    review_manifest: list[dict[str, Any]] | None = None,
 ) -> list[dict[str, Any]]:
-    """Create provision-bounded chunks with source page/line references."""
+    """Create provision-bounded chunks with source references and optional review history."""
+    review_by_index: dict[int, dict[str, Any]] = {}
+    if review_manifest is not None:
+        report = validate_review_manifest(sections, review_manifest)
+        if not report["all_sections_have_valid_review_records"]:
+            raise ValueError("Review manifest failed integrity validation; refusing to attach review history.")
+        review_by_index = {int(record["section_index"]): record for record in review_manifest}
     chunks: list[dict[str, Any]] = []
     counter = 1
 
-    for section in sections:
+    for section_index, section in enumerate(sections):
         number = str(section.get("section_number", "")).strip()
         if not number:
             raise ValueError("Cannot chunk a section without section_number.")
@@ -110,6 +119,7 @@ def create_legal_chunks(
                 raise ValueError(f"Chunk for section {number} has no source trace.")
 
             pages = sorted({span["page_number"] for span in source_spans})
+            review = review_by_index.get(section_index)
             chunks.append({
                 "chunk_id": f"legal_{counter:06d}",
                 "section_number": number,
@@ -129,6 +139,19 @@ def create_legal_chunks(
                 "has_amendment_annotations": bool(section.get("amendments")),
                 "has_footnote_annotations": bool(section.get("footnotes")),
                 "has_ocr_anomalies": bool(section.get("ocr_anomalies")),
+                "source_section_text_sha256": section_text_hash(str(section.get("text", ""))),
+                "review_record_id": review.get("review_record_id") if review else None,
+                "review_status": review.get("review_status", "pending") if review else "pending",
+                "reviewed_by": review.get("reviewed_by") if review else None,
+                "reviewed_at": review.get("reviewed_at") if review else None,
+                "reviewed_text_sha256": review.get("reviewed_text_sha256") if review else None,
+                "legal_content_review_status": review.get("legal_content_review_status", "pending") if review else "pending",
+                "legal_content_reviewed_by": review.get("legal_content_reviewed_by") if review else None,
+                "legal_content_reviewed_at": review.get("legal_content_reviewed_at") if review else None,
+                "legal_content_reviewed_text_sha256": review.get("legal_content_reviewed_text_sha256") if review else None,
+                "legal_authority_reference": review.get("legal_authority_reference") if review else None,
+                "legal_review_resolution_notes": review.get("legal_review_resolution_notes") if review else None,
+                "resolved_review_reasons": list(review.get("resolved_review_reasons", [])) if review else [],
             })
             counter += 1
 
