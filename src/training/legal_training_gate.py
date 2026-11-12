@@ -32,6 +32,10 @@ def evaluate_training_candidates(
             "issue": "manifest_integrity_failed",
             "details": manifest_report["issues"],
         })
+        issues.extend({
+            "section_index": item.get("section_index"),
+            "issue": item.get("issue", "manifest_integrity_failed"),
+        } for item in manifest_report["issues"])
         return {
             "report_type": "legal_training_candidate_gate",
             "section_count": len(sections),
