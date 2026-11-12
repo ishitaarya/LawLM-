@@ -63,7 +63,7 @@ def _append_text(
     value = value.strip()
     if not value:
         return
-    section.text = f"{section.text}\\n{value}".strip() if section.text else value
+    section.text = f"{section.text}\n{value}".strip() if section.text else value
     if page_number not in section.source_pages:
         section.source_pages.append(page_number)
     section.end_page_number = max(section.end_page_number, page_number)
