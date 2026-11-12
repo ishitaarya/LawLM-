@@ -393,3 +393,25 @@ This integration only logs inference output. It does not make model answers
 more accurate, validate the gold benchmark, call an external LLM, or start
 training. Use a separate new run path for every query; combine records into a
 reviewed run file only through a deliberate, separate aggregation step.
+
+
+## End-to-end QA orchestration integration tests
+
+The runtime pipeline and CI share `src.document.qa_orchestrator.run_legal_qa`.
+It coordinates retrieval, citation-aware context construction, generation or
+safe abstention, and optional immutable run-record creation. The model-specific
+loader remains outside this module so the orchestration can be tested without
+downloading model dependencies or loading a checkpoint.
+
+Run the synthetic integration tests:
+
+```powershell
+python -m unittest discover -s tests -p "test_legal_qa_orchestration.py" -v
+```
+
+The tests cover (1) answerable retrieval through generation, saved citation
+metadata, and evaluator hand-off; (2) no-evidence abstention without calling
+the generator; (3) empty generation treated as abstention; and (4) refusal to
+overwrite an existing run file. All legal text and benchmark records in these
+tests are synthetic fixtures. Passing CI demonstrates software-path
+integration only—not legal correctness, real-PDF quality, or model quality.
