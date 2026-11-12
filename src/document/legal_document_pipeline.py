@@ -21,11 +21,17 @@ def prepare_document_artifacts(
     pages: list[dict[str, Any]],
     *,
     repealed_sections: tuple[str, ...] = (),
+    body_start_page: int | None = None,
     chunk_size: int = 1200,
     overlap: int = 150,
 ) -> tuple[list[dict[str, Any]], dict[str, Any], list[dict[str, Any]]]:
     """Build artifacts in memory and stop if structural validation fails."""
-    body_start = find_body_start_page(pages)
+    body_start = body_start_page or find_body_start_page(pages)
+    if body_start is None:
+        raise ValueError(
+            "Could not identify the Act body start. Supply a manually verified "
+            "body_start_page rather than parsing the table of contents."
+        )
     sections = assemble_sections(
         pages,
         body_start_page=body_start,
@@ -86,13 +92,22 @@ def main() -> None:
         type=Path,
         default=Path("data/processed/Indian_Contract_Act_1872_legal_chunks.jsonl"),
     )
+    parser.add_argument(
+        "--body-start-page",
+        type=int,
+        default=None,
+        help="Manually verified first page of the Act body, if automatic detection fails.",
+    )
     parser.add_argument("--chunk-size", type=int, default=1200)
     parser.add_argument("--overlap", type=int, default=150)
     args = parser.parse_args()
 
     pages = load_pages(args.source)
     sections, report, chunks = prepare_document_artifacts(
-        pages, chunk_size=args.chunk_size, overlap=args.overlap
+        pages,
+        body_start_page=args.body_start_page,
+        chunk_size=args.chunk_size,
+        overlap=args.overlap,
     )
 
     outputs = [args.sections_output, args.report_output, args.chunks_output]
