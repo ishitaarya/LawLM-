@@ -65,6 +65,12 @@ def answer_question(
     results = search(query, chunks, idf, vectors, top_k=top_k)
 
     context = build_context(query, results, max_chunks=top_k)
+    if not results:
+        safe_message = (
+            "I could not retrieve a relevant provision from the selected legal "
+            "document. I cannot provide an answer without supporting source text."
+        )
+        return safe_message, results, context
 
     tokenizer = spm.SentencePieceProcessor(model_file=str(DEFAULT_TOKENIZER))
     prompt = build_answer_prompt(query, context, tokenizer)
