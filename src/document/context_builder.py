@@ -37,7 +37,20 @@ def build_context(
             section = result.get("section_number") or "N/A"
             title = result.get("section_title") or "Untitled section"
             page = result.get("page_number") or "N/A"
+            end_page = result.get("end_page_number") or page
             text = " ".join(str(result.get("text", "")).split())
+            source_spans = result.get("source_spans") or []
+            source_lines = sorted({
+                (int(span["page_number"]), int(span["line_number"]))
+                for span in source_spans
+                if span.get("page_number") and span.get("line_number")
+            })
+            line_reference = (
+                "; ".join(f"p{source_page}:L{line_number}"
+                          for source_page, line_number in source_lines)
+                if source_lines else "Line-level reference unavailable"
+            )
+            status = result.get("section_status", "unknown")
 
             lines.extend(
                 [
@@ -45,7 +58,9 @@ def build_context(
                     f"[Source {index}]",
                     f"Section: {section}",
                     f"Title: {title}",
-                    f"Page: {page}",
+                    f"Pages: {page}-{end_page}",
+                    f"Source lines: {line_reference}",
+                    f"Section status: {status}",
                     f"Text: {text}",
                 ]
             )
