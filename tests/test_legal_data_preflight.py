@@ -101,7 +101,9 @@ class LegalDataPreflightTests(unittest.TestCase):
             paths[0].write_text('{"broken":\n', encoding="utf-8")
             report = run_preflight(*paths)
         self.assertFalse(report["structural_preflight_passed"])
-        self.assertIn("error", report["inputs"]["source_pages_jsonl"])
+        page_report = report["inputs"]["source_pages_jsonl"]["audit"]
+        self.assertEqual(page_report["json_parse_error_count"], 1)
+        self.assertFalse(page_report["structural_page_integrity_passed"])
 
     def test_source_files_are_fingerprinted_without_rewriting(self):
         with tempfile.TemporaryDirectory() as directory:
