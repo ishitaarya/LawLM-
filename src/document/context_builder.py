@@ -51,6 +51,12 @@ def build_context(
                 if source_lines else "Line-level reference unavailable"
             )
             status = result.get("section_status", "unknown")
+            review_required = bool(result.get("review_required", True))
+            annotations = (
+                f"amendments={bool(result.get('has_amendment_annotations'))}, "
+                f"footnotes={bool(result.get('has_footnote_annotations'))}, "
+                f"OCR anomalies={bool(result.get('has_ocr_anomalies'))}"
+            )
 
             lines.extend(
                 [
@@ -61,6 +67,8 @@ def build_context(
                     f"Pages: {page}-{end_page}",
                     f"Source lines: {line_reference}",
                     f"Section status: {status}",
+                    f"Review required: {review_required}",
+                    f"Annotations: {annotations}",
                     f"Text: {text}",
                 ]
             )
