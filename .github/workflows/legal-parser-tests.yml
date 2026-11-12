@@ -1,6 +1,7 @@
 name: Legal document parser tests
 
 on:
+  workflow_dispatch:
   push:
     branches:
       - feature/legal-document-parser
