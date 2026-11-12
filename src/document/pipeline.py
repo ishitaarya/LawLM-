@@ -54,9 +54,6 @@ def answer_question(
     """Run retrieval, context construction, and LLM generation."""
     if not chunks_path.exists():
         raise FileNotFoundError(f"Chunk file not found: {chunks_path}")
-    if not DEFAULT_TOKENIZER.exists():
-        raise FileNotFoundError(f"Tokenizer not found: {DEFAULT_TOKENIZER}")
-
     chunks = load_chunks(chunks_path)
     if not chunks:
         raise RuntimeError("No legal chunks found.")
@@ -72,6 +69,8 @@ def answer_question(
         )
         return safe_message, results, context
 
+    if not DEFAULT_TOKENIZER.exists():
+        raise FileNotFoundError(f"Tokenizer not found: {DEFAULT_TOKENIZER}")
     tokenizer = spm.SentencePieceProcessor(model_file=str(DEFAULT_TOKENIZER))
     prompt = build_answer_prompt(query, context, tokenizer)
 
