@@ -11,7 +11,8 @@ from collections import Counter
 from pathlib import Path
 from typing import Any
 
-from src.document.legal_section_assembler import assemble_document
+from src.document.legal_parser import find_body_start_page, load_pages
+from src.document.legal_section_assembler import assemble_document, assemble_sections
 
 
 def validate_sections(sections: list[dict[str, Any]]) -> dict[str, Any]:
@@ -140,9 +141,23 @@ def main() -> None:
         default=None,
         help="Optional report path. Existing files are never overwritten.",
     )
+    parser.add_argument(
+        "--body-start-page",
+        type=int,
+        default=None,
+        help="Manually verified first page of the Act body.",
+    )
     args = parser.parse_args()
 
-    sections = assemble_document(args.source)
+    if args.body_start_page is None:
+        sections = assemble_document(args.source)
+    else:
+        pages = load_pages(args.source)
+        if not any(int(page["page_number"]) == args.body_start_page for page in pages):
+            raise ValueError("--body-start-page must match an existing source page.")
+        sections = assemble_sections(
+            pages, body_start_page=args.body_start_page
+        )
     report = validate_sections(sections)
     rendered = json.dumps(report, indent=2, ensure_ascii=False)
 
