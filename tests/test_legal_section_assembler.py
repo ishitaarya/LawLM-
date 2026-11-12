@@ -58,7 +58,7 @@ class LegalSectionAssemblerTests(unittest.TestCase):
     def test_fused_footnote_section_number_is_preserved_for_review(self):
         pages = [{
             "page_number": 44,
-            "text": "150. Previous provision.—Existing text.\\n"
+            "text": "150. Previous provision.—Existing text.\n"
             "1151. Special provision.—Text belonging to possible Section 151.",
         }]
         result = assemble_sections(pages, body_start_page=44)
