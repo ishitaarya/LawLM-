@@ -14,6 +14,13 @@ class ContextBuilderTests(unittest.TestCase):
                 "page_number": 12,
                 "end_page_number": 13,
                 "section_status": "unknown",
+                "amendment_annotations": [
+                    {"page_number": 13, "line_number": 5, "text": "State amendment wording."}
+                ],
+                "footnote_annotations": [
+                    {"page_number": 13, "line_number": 6, "text": "Footnote explanation."}
+                ],
+                "ocr_anomalies": [{"text": "1151."}],
                 "source_spans": [
                     {"page_number": 12, "line_number": 4, "text": "An agreement."},
                     {"page_number": 13, "line_number": 2, "text": "A contract."},
@@ -25,7 +32,11 @@ class ContextBuilderTests(unittest.TestCase):
         self.assertIn("p12:L4; p13:L2", context)
         self.assertIn("Section status: unknown", context)
         self.assertIn("Review required: True", context)
-        self.assertIn("OCR anomalies=False", context)
+        self.assertIn("OCR anomalies=True", context)
+        self.assertIn("Separate amendment annotation", context)
+        self.assertIn("State amendment wording.", context)
+        self.assertIn("Separate footnote", context)
+        self.assertIn("OCR anomaly requiring manual review: 1151.", context)
 
     def test_empty_results_are_not_presented_as_evidence(self):
         context = build_context("Question", [])
