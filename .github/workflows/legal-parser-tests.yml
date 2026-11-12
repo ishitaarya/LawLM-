@@ -20,6 +20,8 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: "3.11"
+      - name: Compile modified source and tests
+        run: python -m compileall -q src/document src/training/qa_dataset_audit.py src/evaluation/legal_retrieval_evaluation.py tests
       - name: Run legal parser tests
         run: python -m unittest discover -s tests -p "test_legal_parser.py" -v
       - name: Run legal section assembler tests
