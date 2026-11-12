@@ -14,7 +14,6 @@ from typing import Any, Iterable
 from src.document.legal_parser import (
     DEFAULT_SOURCE,
     detect_amendment_markers,
-    detect_chapter_headings,
     detect_section_candidates,
     find_body_start_page,
     load_pages,
@@ -24,6 +23,7 @@ _FOOTNOTE_START = re.compile(
     r"^\s*\d+\.\s*(?:For\b|See\b|Subs\.\s+by\b|The words\b)", re.IGNORECASE
 )
 _HEADING_SEPARATOR = re.compile(r"(?:[.。]\s*[—–-]|[—–])")
+_CHAPTER_LINE = re.compile(r"^\\s*CHAPTER\\s+([IVXLCDM]+)\\s*$", re.IGNORECASE)
 # Known scan artifacts in this source: a footnote marker can be fused with
 # section 151/161 (e.g. 1151./1161.). Never normalize these automatically.
 _OCR_SECTION_PREFIX = re.compile(r"^11(?:5|6)1\.\s*")
@@ -96,16 +96,17 @@ def assemble_sections(
         if body_start_page is not None and page_number < body_start_page:
             continue
 
-        headings = detect_chapter_headings(page_text)
-        if headings:
-            current_chapter = headings[-1]
-
         candidates = detect_section_candidates(page_text, page_number)
         candidates_by_line = {item["line_number"]: item for item in candidates}
 
         for line_number, raw_line in enumerate(page_text.splitlines(), start=1):
             line = raw_line.strip()
             if not line:
+                continue
+
+            chapter_match = _CHAPTER_LINE.match(line)
+            if chapter_match:
+                current_chapter = f"CHAPTER {chapter_match.group(1).upper()}"
                 continue
 
             if line_number in candidates_by_line:
