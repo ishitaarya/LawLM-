@@ -52,15 +52,27 @@ def _section_body(raw_line: str) -> str:
     return raw_line[match.end():].strip() if match else ""
 
 
-def _append_text(section: AssembledSection, value: str, page_number: int) -> None:
+def _append_text(
+    section: AssembledSection,
+    value: str,
+    page_number: int,
+    line_number: int,
+    *,
+    raw_line: str | None = None,
+) -> None:
     value = value.strip()
     if not value:
         return
-    section.text = f"{section.text}\n{value}".strip() if section.text else value
+    section.text = f"{section.text}\\n{value}".strip() if section.text else value
     if page_number not in section.source_pages:
         section.source_pages.append(page_number)
     section.end_page_number = max(section.end_page_number, page_number)
-
+    section.source_spans.append({
+        "page_number": page_number,
+        "line_number": line_number,
+        "text": value,
+        "raw_line": raw_line if raw_line is not None else value,
+    })
 
 def assemble_sections(
     pages: Iterable[dict[str, Any]],
