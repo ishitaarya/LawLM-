@@ -140,6 +140,16 @@ def main() -> None:
             f"{result.get('end_page_number', result.get('page_number', 'N/A'))} "
             f"| score {result.get('score', 0.0):.4f}"
         )
+        source_lines = sorted({
+            (int(span["page_number"]), int(span["line_number"]))
+            for span in result.get("source_spans", [])
+            if span.get("page_number") and span.get("line_number")
+        })
+        if source_lines:
+            citations = ", ".join(
+                f"p{page}:L{line}" for page, line in source_lines
+            )
+            print(f"      Source lines: {citations}")
     print()
     print("Generated answer:")
     print(answer or "[No generated text]")
