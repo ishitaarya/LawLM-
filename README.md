@@ -117,7 +117,10 @@ This repository has progressed beyond the initial Phase 1 foundation.
 | Structural validation and page/line provenance | Implemented; automated tests are configured |
 | Section-aware, source-traceable chunking | Implemented on the legal-document feature branch |
 | Full source-document validation | Pending actual PDF/page JSONL review |
-| Legal QA evaluation and retrieval integration | In progress |
+| Citation-aware retrieval context and repealed-section filtering | Implemented; automated tests pass |
+| Supervised QA dataset audit | Implemented as a read-only audit; actual local dataset review pending |
+| Retrieval ranking evaluation (Hit Rate@1/3/5, MRR) | Implemented; human-reviewed benchmark data pending |
+| Legal QA evaluation and retrieval integration | In progress; answer correctness still requires manual legal review |
 | Frontend and final project packaging | Pending |
 
 The current Transformer configuration uses a 10,000-token vocabulary, 256-token context, 384-dimensional embeddings, 4 layers, 6 attention heads, and a 1,536-dimensional feed-forward layer. It starts from random weights; it does not use a pretrained LLM.
