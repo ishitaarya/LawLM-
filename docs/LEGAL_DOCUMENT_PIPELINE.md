@@ -266,3 +266,58 @@ python -m src.training.legal_chunk_provenance_audit --sections "data/processed/I
 The audit checks source section hashes, page ranges, page/line coordinates, source excerpts, raw source lines, exact chunk-text reconstruction, amendment/footnote/OCR annotations, section identity/status, and carried review-history fields. It also confirms that every section passing the two-stage review gate has at least one chunk. Ambiguous or unreviewed sections are blocked from the candidate set.
 
 The report is created at a new path and never overwrites existing data. A passing provenance report is still not legal accuracy verification, QA dataset approval, or permission to train. It never exports a training dataset or starts model training.
+
+
+## Human-reviewed legal QA dataset builder
+
+The QA builder does **not** generate questions or answers automatically. A
+human must write each question and answer, identify an exact supporting quote
+from a reviewed legal chunk, and approve that exact QA payload. The approval
+hash covers the question, answer, evidence quote, and chunk ID; changing any
+of them invalidates the approval.
+
+Keep three separate draft files. Every record must contain:
+
+- `question`, `answer`, `evidence_quote`, and `chunk_id`
+- `qa_review_status: "qa_review_approved"`
+- `qa_reviewed_by` and `qa_reviewed_at`
+- `qa_reviewed_content_sha256`, calculated with
+  `qa_review_hash(record)` from `src.training.legal_qa_dataset_builder`
+
+Example approval preparation (the human reviewer must review the content
+before recording this attestation):
+
+```python
+from src.training.legal_qa_dataset_builder import qa_review_hash
+
+draft = {
+    "question": "When is an agreement a contract?",
+    "answer": "A valid agreement becomes a contract when it is enforceable by law.",
+    "evidence_quote": "A valid agreement is enforceable by law.",
+    "chunk_id": "legal_000001",
+    "qa_review_status": "qa_review_approved",
+    "qa_reviewed_by": "Reviewer name or role",
+    "qa_reviewed_at": "2026-11-12T14:00:00Z",
+}
+draft["qa_reviewed_content_sha256"] = qa_review_hash(draft)
+```
+
+Build three splits without random splitting or overwriting existing files:
+
+```powershell
+python -m src.training.legal_qa_dataset_builder --sections "data/processed/Indian_Contract_Act_1872_sections_v2.jsonl" --chunks "data/processed/Indian_Contract_Act_1872_reviewed_chunks_v2.jsonl" --review-manifest "data/review/Indian_Contract_Act_1872_review_v2.jsonl" --train-drafts "data/qa_reviewed/train_drafts.jsonl" --validation-drafts "data/qa_reviewed/validation_drafts.jsonl" --test-drafts "data/qa_reviewed/test_drafts.jsonl" --output-dir "data/qa_reviewed/built_v2"
+```
+
+Before building, it rechecks the two-stage section gate and chunk provenance.
+It rejects unreviewed or modified QA drafts, evidence quotes not found exactly
+in the referenced chunk, non-candidate/repealed sections, duplicate questions,
+and any section appearing in more than one split. All examples from one legal
+section stay together to reduce section-level leakage. Output records preserve
+the source context, section, page/line citations, authority reference, and
+reviewer history.
+
+This is a controlled dataset-construction step, not an automatic legal QA
+generator. A passing build still does not independently prove that an answer
+is legally correct or authorize training. The builder always reports
+`ready_for_training: false`; it does not touch existing QA v2 splits or
+model checkpoints.
