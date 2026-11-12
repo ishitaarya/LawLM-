@@ -35,3 +35,5 @@ jobs:
         run: python -m unittest discover -s tests -p "test_retriever.py" -v
       - name: Run legal QA dataset audit tests
         run: python -m unittest discover -s tests -p "test_qa_dataset_audit.py" -v
+      - name: Run legal retrieval evaluation tests
+        run: python -m unittest discover -s tests -p "test_legal_retrieval_evaluation.py" -v
