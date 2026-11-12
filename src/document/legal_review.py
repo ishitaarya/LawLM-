@@ -209,7 +209,7 @@ def write_jsonl_new(records: list[dict[str, Any]], path: Path) -> None:
     path.parent.mkdir(parents=True, exist_ok=True)
     with path.open("x", encoding="utf-8") as handle:
         for record in records:
-            handle.write(json.dumps(record, ensure_ascii=False) + "\\n")
+            handle.write(json.dumps(record, ensure_ascii=False) + "\n")
 
 
 def main() -> None:
