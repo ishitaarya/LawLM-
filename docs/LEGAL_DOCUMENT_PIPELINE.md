@@ -106,6 +106,28 @@ on the configured tokenizer and checkpoint being available locally.
 The source PDF and page-level JSONL are user data and are not assumed to be present in GitHub. The automated tests use small synthetic fixtures. Full Indian Contract Act validation requires the actual PDF/page JSONL and manual comparison with an authoritative publication.
 
 
+
+## Retrieval evaluation
+
+The evaluator measures section retrieval with Hit Rate@1/3/5 and Mean
+Reciprocal Rank (MRR). It requires a **human-reviewed** benchmark JSONL file;
+the project does not invent expected legal sections.
+
+Each benchmark line must follow this shape:
+
+```json
+{"query": "What makes an agreement a contract?", "expected_sections": ["10"]}
+```
+
+Run it after creating the reviewed benchmark:
+
+```powershell
+python -m src.evaluation.legal_retrieval_evaluation --chunks "data/processed/Indian_Contract_Act_1872_legal_chunks_v2.jsonl" --benchmark "data/evaluation/legal_retrieval_benchmark.jsonl" --output "reports/legal_retrieval_v2.json"
+```
+
+These metrics evaluate retrieval ranking only. They do not evaluate the
+generated model answer or prove that a legal interpretation is correct.
+
 ## Supervised QA dataset audit
 
 The QA audit is read-only. It reports missing/empty fields, suspiciously short
