@@ -39,7 +39,7 @@ python -m src.document.pdf_loader "data/raw/Indian_Contract_Act_1872.pdf" --outp
 python -m src.document.legal_document_pipeline --source "data/documents/Indian_Contract_Act_1872_pages_v2.jsonl" --sections-output "data/processed/Indian_Contract_Act_1872_sections_v2.jsonl" --report-output "reports/Indian_Contract_Act_1872_validation_v2.json" --chunks-output "data/processed/Indian_Contract_Act_1872_legal_chunks_v2.jsonl"
 ```
 
-Use a new suffix (for example, `_v3`) for another run. The extractor and artifact pipeline refuse to overwrite existing outputs.
+Use a new suffix (for example, `_v3`) for another run. The extractor and artifact pipeline refuse to overwrite existing outputs.\n\nIf the enactment/preamble marker is not detected automatically, verify the first Act-body page from the PDF and pass it explicitly with `--body-start-page 10` (replace 10 with the verified page number). The pipeline refuses to treat an unknown table-of-contents boundary as legal text.
 
 ## Output contracts
 
