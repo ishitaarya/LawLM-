@@ -322,6 +322,12 @@ def main() -> None:
 
     parser.add_argument("--top-k", type=int, default=DEFAULT_TOP_K)
     parser.add_argument(
+        "--input",
+        type=Path,
+        default=DEFAULT_INPUT,
+        help="Legal chunk JSONL file to search.",
+    )
+    parser.add_argument(
         "--include-repealed",
         action="store_true",
         help="Include explicitly marked repealed sections for historical research.",
@@ -332,12 +338,10 @@ def main() -> None:
     if args.top_k < 1:
         raise ValueError("--top-k must be at least 1.")
 
-    if not DEFAULT_INPUT.exists():
-        raise FileNotFoundError(
-            f"Chunk file not found: {DEFAULT_INPUT}"
-        )
+    if not args.input.exists():
+        raise FileNotFoundError(f"Chunk file not found: {args.input}")
 
-    chunks = load_chunks(DEFAULT_INPUT)
+    chunks = load_chunks(args.input)
 
     if not chunks:
         raise RuntimeError("No legal chunks found.")
