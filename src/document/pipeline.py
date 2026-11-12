@@ -40,7 +40,7 @@ def build_answer_prompt(query: str, context: str, tokenizer: spm.SentencePiecePr
     if available <= 0:
         raise ValueError("Question/instruction is too long for the model context.")
 
-    compact_context = tokenizer.decode(context_ids[-available:])
+    compact_context = tokenizer.decode(context_ids[:available])
     return compact_context + instruction
 
 
