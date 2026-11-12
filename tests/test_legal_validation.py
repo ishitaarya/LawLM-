@@ -89,6 +89,14 @@ class LegalValidationTests(unittest.TestCase):
         self.assertEqual(report["sections_with_page_refs_outside_declared_range"], ["1"])
         self.assertFalse(report["checks"]["all_page_refs_within_declared_ranges"])
 
+    def test_malformed_page_reference_types_are_reported_without_crashing(self):
+        section = self._section()
+        section["source_pages"] = [10, "invalid"]
+        report = validate_sections([section])
+        self.assertEqual(
+            report["sections_with_unsorted_or_duplicate_page_refs"], ["1"]
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
