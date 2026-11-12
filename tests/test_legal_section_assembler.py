@@ -102,6 +102,20 @@ class LegalSectionAssemblerTests(unittest.TestCase):
         self.assertEqual(section["source_spans"][0]["text"], "This Act may be called the Act.")
         self.assertEqual(section["source_spans"][-1]["text"], "It also applies to the notified territories.")
 
+    def test_chapter_heading_changes_context_only_for_following_sections(self):
+        pages = [{
+            "page_number": 15,
+            "text": "1. Short title.—First provision.\\n"
+            "CHAPTER II\\n"
+            "10. What agreements are contracts.—Second provision.",
+        }]
+        result = assemble_sections(pages, body_start_page=15)
+        first = next(item for item in result if item["section_number"] == "1")
+        second = next(item for item in result if item["section_number"] == "10")
+        self.assertIsNone(first["chapter"])
+        self.assertEqual(second["chapter"], "CHAPTER II")
+        self.assertNotIn("CHAPTER II", first["text"])
+
 
 if __name__ == "__main__":
     unittest.main()
