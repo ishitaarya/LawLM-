@@ -80,7 +80,7 @@ class LegalSectionAssemblerTests(unittest.TestCase):
         pages = [
             {
                 "page_number": 10,
-                "text": "Preamble text\\n1. Short title.—This Act may be called the Act.\\n"
+                "text": "Preamble text\n1. Short title.—This Act may be called the Act.\n"
                 "It extends to the whole of India.",
             },
             {"page_number": 11, "text": "It also applies to the notified territories."},
@@ -106,7 +106,7 @@ class LegalSectionAssemblerTests(unittest.TestCase):
         pages = [{
             "page_number": 15,
             "text": "1. Short title.—First provision.\n"
-            "CHAPTER II\\n"
+            "CHAPTER II\n"
             "10. What agreements are contracts.—Second provision.",
         }]
         result = assemble_sections(pages, body_start_page=15)
