@@ -202,3 +202,40 @@ currentness, completeness, or permission to train. Both
 text changes, the previous approval no longer validates and a fresh pending
 manifest should be generated. Keep the review manifest as a separate artifact;
 do not overwrite source sections, chunks, QA datasets, or checkpoints.
+
+
+## Controlled legal training-candidate gate
+
+The review manifest has two distinct human attestations:
+1. Extraction/structure review, tied to the exact section-text SHA-256.
+2. Legal-content review, tied to the same hash and requiring a named reviewer,
+   timestamp, authoritative-source reference, and review notes.
+
+Use `approve_legal_content_record` in `src.document.legal_review` only after
+checking the provision and its legal status against the cited authoritative
+source. Any review reasons on the manifest must be explicitly listed as
+resolved; missing or duplicate section identities cannot pass the gate.
+
+The candidate gate can be called from Python after loading the current section
+JSONL and review manifest:
+
+```python
+from src.document.legal_review import load_jsonl
+from src.training.legal_training_gate import evaluate_training_candidates
+
+sections = load_jsonl(Path("data/processed/Indian_Contract_Act_1872_sections_v2.jsonl"))
+manifest = load_jsonl(Path("data/review/Indian_Contract_Act_1872_review_v2.jsonl"))
+report = evaluate_training_candidates(sections, manifest)
+print(report)
+```
+
+Only sections with both valid attestations, matching current text hashes,
+explicit `in_force`/ `active` status, and resolved review flags are listed as
+candidates. Unknown and repealed sections are blocked. A manifest integrity
+failure blocks all sections.
+
+**Candidate does not mean training-ready.** This gate does not independently
+verify the cited authority, export or filter a dataset, modify QA splits, or
+start training. It always reports `ready_for_training: false` and
+`legal_accuracy_verified: false`. Separate QA dataset, benchmark, and final
+training approvals remain necessary. No training is triggered automatically.
