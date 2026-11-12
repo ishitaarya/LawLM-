@@ -33,3 +33,5 @@ jobs:
         run: python -m unittest discover -s tests -p "test_context_builder.py" -v
       - name: Run legal retriever tests
         run: python -m unittest discover -s tests -p "test_retriever.py" -v
+      - name: Run legal QA dataset audit tests
+        run: python -m unittest discover -s tests -p "test_qa_dataset_audit.py" -v
