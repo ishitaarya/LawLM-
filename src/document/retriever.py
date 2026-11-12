@@ -194,7 +194,8 @@ def cosine_similarity(query_vector: dict[str, float],
 
 def search(query: str, chunks: list[dict], idf: dict[str, float],
            vectors: list[dict[str, float]],
-           top_k: int = DEFAULT_TOP_K) -> list[dict]:
+           top_k: int = DEFAULT_TOP_K,
+           include_repealed: bool = False) -> list[dict]:
     """Return ranked legal chunks with concept-aware boosts."""
     query_terms = expand_query(query)
     query_counts = Counter(query_terms)
@@ -213,6 +214,11 @@ def search(query: str, chunks: list[dict], idf: dict[str, float],
     results = []
 
     for chunk, vector in zip(chunks, vectors):
+        if (
+            not include_repealed
+            and str(chunk.get("section_status", "unknown")).lower() == "repealed"
+        ):
+            continue
         score = cosine_similarity(query_vector, vector)
 
         text = chunk.get("text", "").lower()
@@ -315,6 +321,11 @@ def main() -> None:
     )
 
     parser.add_argument("--top-k", type=int, default=DEFAULT_TOP_K)
+    parser.add_argument(
+        "--include-repealed",
+        action="store_true",
+        help="Include explicitly marked repealed sections for historical research.",
+    )
 
     args = parser.parse_args()
 
@@ -338,6 +349,7 @@ def main() -> None:
         idf,
         vectors,
         args.top_k,
+        include_repealed=args.include_repealed,
     )
 
     print_results(args.query, results)
