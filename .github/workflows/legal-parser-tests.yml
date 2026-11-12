@@ -54,3 +54,6 @@ jobs:
         run: python -m unittest discover -s tests -p "test_legal_answer_evaluation.py" -v
       - name: Run legal inference logger tests
         run: python -m unittest discover -s tests -p "test_legal_run_logger.py" -v
+
+      - name: Run legal QA orchestration integration tests
+        run: python -m unittest discover -s tests -p "test_legal_qa_orchestration.py" -v
