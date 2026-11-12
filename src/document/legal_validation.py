@@ -45,6 +45,33 @@ def validate_sections(sections: list[dict[str, Any]]) -> dict[str, Any]:
         if item.get("source_pages")
         and item["source_pages"] != sorted(set(item["source_pages"]))
     ]
+    missing_heading_provenance = [
+        item.get("section_number")
+        for item in sections
+        if not isinstance(item.get("heading_source"), dict)
+        or not item["heading_source"].get("page_number")
+        or not item["heading_source"].get("line_number")
+        or not item["heading_source"].get("raw_line")
+    ]
+    invalid_source_spans = []
+    for item in sections:
+        spans = item.get("source_spans", [])
+        if not isinstance(spans, list) or not spans:
+            invalid_source_spans.append(item.get("section_number"))
+            continue
+        for span in spans:
+            try:
+                valid_span = (
+                    int(span.get("page_number", 0)) >= 1
+                    and int(span.get("line_number", 0)) >= 1
+                    and bool(str(span.get("text", "")).strip())
+                    and int(span["page_number"]) in item.get("source_pages", [])
+                )
+            except (TypeError, ValueError, KeyError):
+                valid_span = False
+            if not valid_span:
+                invalid_source_spans.append(item.get("section_number"))
+                break
     amendment_count = sum(len(item.get("amendments", [])) for item in sections)
     footnote_count = sum(len(item.get("footnotes", [])) for item in sections)
     ocr_anomaly_count = sum(len(item.get("ocr_anomalies", [])) for item in sections)
@@ -61,6 +88,8 @@ def validate_sections(sections: list[dict[str, Any]]) -> dict[str, Any]:
         "invalid_page_ranges": invalid_ranges,
         "sections_missing_page_provenance": missing_page_provenance,
         "sections_with_unsorted_or_duplicate_page_refs": page_order_errors,
+        "sections_missing_heading_line_provenance": missing_heading_provenance,
+        "sections_with_invalid_body_line_provenance": invalid_source_spans,
         "amendment_annotation_count": amendment_count,
         "footnote_annotation_count": footnote_count,
         "ocr_anomaly_count": ocr_anomaly_count,
@@ -72,6 +101,8 @@ def validate_sections(sections: list[dict[str, Any]]) -> dict[str, Any]:
             "all_page_ranges_valid": not invalid_ranges,
             "all_sections_have_page_provenance": not missing_page_provenance,
             "page_references_sorted_and_unique": not page_order_errors,
+            "all_sections_have_heading_line_provenance": not missing_heading_provenance,
+            "all_body_spans_have_valid_page_line_provenance": not invalid_source_spans,
         },
         "ready_for_training": False,
         "note": (
