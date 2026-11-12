@@ -63,15 +63,21 @@ def audit_records(records: list[dict[str, Any]]) -> dict[str, Any]:
             if not _looks_sentence_complete(answer):
                 record_issues.append("answer_may_be_sentence_truncated")
 
-        truncation_flags = (
+        hard_truncation_flags = (
             record.get("hard_truncated") is True
             or record.get("token_truncated") is True
             or str(record.get("truncation_type", "")).casefold()
             in {"hard", "hard_token", "token_limit"}
         )
-        if truncation_flags:
+        generic_truncation_flag = (
+            record.get("truncated") is True
+            or record.get("was_truncated") is True
+        )
+        if hard_truncation_flags:
             hard_truncated.append(index)
             record_issues.append("hard_truncation_flagged")
+        elif generic_truncation_flag:
+            record_issues.append("truncation_flagged_for_review")
 
         if record_issues:
             review_required.add(index)
