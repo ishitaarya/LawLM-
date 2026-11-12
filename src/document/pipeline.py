@@ -49,14 +49,15 @@ def answer_question(
     top_k: int = 3,
     max_new_tokens: int = 80,
     temperature: float = 0.7,
+    chunks_path: Path = DEFAULT_CHUNKS,
 ) -> tuple[str, list[dict], str]:
     """Run retrieval, context construction, and LLM generation."""
-    if not DEFAULT_CHUNKS.exists():
-        raise FileNotFoundError(f"Chunk file not found: {DEFAULT_CHUNKS}")
+    if not chunks_path.exists():
+        raise FileNotFoundError(f"Chunk file not found: {chunks_path}")
     if not DEFAULT_TOKENIZER.exists():
         raise FileNotFoundError(f"Tokenizer not found: {DEFAULT_TOKENIZER}")
 
-    chunks = load_chunks(DEFAULT_CHUNKS)
+    chunks = load_chunks(chunks_path)
     if not chunks:
         raise RuntimeError("No legal chunks found.")
 
@@ -98,6 +99,12 @@ def main() -> None:
         default="When is an agreement without consideration valid?",
     )
     parser.add_argument("--top-k", type=int, default=3)
+    parser.add_argument(
+        "--chunks",
+        type=Path,
+        default=DEFAULT_CHUNKS,
+        help="Optional section-aware legal chunk JSONL path.",
+    )
     parser.add_argument("--max-new-tokens", type=int, default=80)
     parser.add_argument("--temperature", type=float, default=0.7)
     args = parser.parse_args()
@@ -110,6 +117,7 @@ def main() -> None:
         top_k=args.top_k,
         max_new_tokens=args.max_new_tokens,
         temperature=args.temperature,
+        chunks_path=args.chunks,
     )
 
     print("=" * 72)
@@ -123,7 +131,8 @@ def main() -> None:
     for rank, result in enumerate(results, start=1):
         print(
             f"  [{rank}] Section {result.get('section_number', 'N/A')} "
-            f"| page {result.get('page_number', 'N/A')} "
+            f"| pages {result.get('page_number', 'N/A')}-"
+            f"{result.get('end_page_number', result.get('page_number', 'N/A'))} "
             f"| score {result.get('score', 0.0):.4f}"
         )
     print()
