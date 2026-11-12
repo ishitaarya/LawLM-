@@ -25,3 +25,5 @@ jobs:
         run: python -m unittest discover -s tests -p "test_legal_section_assembler.py" -v
       - name: Run legal validation tests
         run: python -m unittest discover -s tests -p "test_legal_validation.py" -v
+      - name: Run legal chunker tests
+        run: python -m unittest discover -s tests -p "test_legal_chunker.py" -v
