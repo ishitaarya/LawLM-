@@ -34,6 +34,19 @@ class LegalDocumentPipelineTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             prepare_document_artifacts(pages)
 
+    def test_manually_verified_body_start_can_be_supplied(self):
+        pages = [{
+            "source_file": "sample.pdf",
+            "page_number": 10,
+            "text": "1. Short title.—This Act may be called the Sample Act.",
+        }]
+        sections, report, chunks = prepare_document_artifacts(
+            pages, body_start_page=10, chunk_size=200, overlap=20
+        )
+        self.assertEqual(sections[0]["section_number"], "1")
+        self.assertEqual(len(chunks), 1)
+        self.assertFalse(report["legal_accuracy_verified"])
+
 
 if __name__ == "__main__":
     unittest.main()
