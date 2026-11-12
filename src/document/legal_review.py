@@ -127,6 +127,47 @@ def approve_review_record(
     return approved
 
 
+
+def approve_legal_content_record(
+    record: dict[str, Any],
+    *,
+    reviewer: str,
+    reviewed_at: str,
+    reviewed_text_sha256: str,
+    authority_reference: str,
+    resolution_notes: str,
+    resolved_review_reasons: list[str] | None = None,
+) -> dict[str, Any]:
+    """Record a separate human legal-content review against an identified authority.
+
+    This is a reviewer attestation, not an independent guarantee of correctness.
+    """
+    if not isinstance(reviewer, str) or not reviewer.strip():
+        raise ValueError("A non-empty legal reviewer identity is required.")
+    if not isinstance(reviewed_at, str) or not reviewed_at.strip():
+        raise ValueError("A legal review timestamp is required.")
+    if not isinstance(authority_reference, str) or not authority_reference.strip():
+        raise ValueError("An authoritative source reference is required.")
+    if not isinstance(resolution_notes, str) or not resolution_notes.strip():
+        raise ValueError("Legal review notes are required.")
+    expected_hash = record.get("source_text_sha256")
+    if not expected_hash or reviewed_text_sha256 != expected_hash:
+        raise ValueError("Reviewed text hash does not match the current source text.")
+    approved = dict(record)
+    approved.update({
+        "legal_content_review_status": "legal_content_review_approved",
+        "legal_content_reviewed_by": reviewer.strip(),
+        "legal_content_reviewed_at": reviewed_at.strip(),
+        "legal_content_reviewed_text_sha256": reviewed_text_sha256,
+        "legal_authority_reference": authority_reference.strip(),
+        "legal_review_resolution_notes": resolution_notes.strip(),
+        "resolved_review_reasons": sorted(set(resolved_review_reasons or [])),
+        "legal_accuracy_verified": False,
+        "ready_for_training": False,
+    })
+    return approved
+
+
 def validate_review_manifest(
     sections: list[dict[str, Any]], manifest: list[dict[str, Any]]
 ) -> dict[str, Any]:
