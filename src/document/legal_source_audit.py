@@ -115,6 +115,8 @@ def load_pages_with_parse_errors(path: Path) -> tuple[list[dict[str, Any]], list
     pages: list[dict[str, Any]] = []
     for line_number, raw in enumerate(valid_lines, start=1):
         record = json.loads(raw)
+        if not isinstance(record, dict):
+            raise ValueError(f"Each JSONL record must be an object (valid JSON record {line_number}).")
         missing = {"source_file", "page_number", "text"} - record.keys()
         if missing:
             raise ValueError(f"Missing {sorted(missing)} in valid JSON record {line_number}")
