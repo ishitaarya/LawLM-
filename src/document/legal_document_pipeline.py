@@ -107,6 +107,12 @@ def main() -> None:
         default=None,
         help="Manually verified first page of the Act body, if automatic detection fails.",
     )
+    parser.add_argument(
+        "--repealed-section",
+        action="append",
+        default=[],
+        help="Verified repealed section number; repeat this option for multiple sections.",
+    )
     parser.add_argument("--chunk-size", type=int, default=1200)
     parser.add_argument("--overlap", type=int, default=150)
     args = parser.parse_args()
@@ -115,6 +121,7 @@ def main() -> None:
     sections, report, chunks = prepare_document_artifacts(
         pages,
         body_start_page=args.body_start_page,
+        repealed_sections=tuple(args.repealed_section),
         chunk_size=args.chunk_size,
         overlap=args.overlap,
     )
