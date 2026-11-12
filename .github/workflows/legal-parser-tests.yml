@@ -1,0 +1,25 @@
+name: Legal document parser tests
+
+on:
+  push:
+    branches:
+      - feature/legal-document-parser
+  pull_request:
+    branches:
+      - main
+      - feature/legal-document-parser
+
+jobs:
+  parser-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+      - name: Run legal parser tests
+        run: python -m unittest discover -s tests -p "test_legal_parser.py" -v
+      - name: Run legal section assembler tests
+        run: python -m unittest discover -s tests -p "test_legal_section_assembler.py" -v
