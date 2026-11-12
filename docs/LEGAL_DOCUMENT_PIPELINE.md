@@ -364,3 +364,32 @@ generated claim is supported. A qualified human must compare each answer with
 the expected answer and authoritative law. The evaluator always leaves
 `legal_answer_accuracy_verified` and `ready_for_training` false. It does not
 call an LLM, invoke model generation, modify datasets, or start training.
+
+
+### Saving actual inference runs for answer evaluation
+
+The inference CLI can now save one evaluator-compatible JSONL record for each
+question. The query ID must exactly match a human-approved gold benchmark
+record. Supply both optional arguments together:
+
+```powershell
+python -m src.document.pipeline "When is an agreement a contract?" --chunks "data/processed/Indian_Contract_Act_1872_reviewed_chunks_v2.jsonl" --query-id "contract-001" --evaluation-record "data/evaluation/runs/contract-001.jsonl"
+```
+
+Each output path must be new; the logger uses exclusive file creation and
+refuses to overwrite or append to an existing run. The record preserves the
+retrieved chunk objects, including section and citation metadata. For a
+no-evidence refusal, `answer` is empty and `abstained` is true, while
+`displayed_response` preserves the refusal text shown by the CLI. This lets
+the evaluator distinguish a safe refusal from a generated substantive answer.
+
+Run the answer evaluator against the matching gold file and saved run file:
+
+```powershell
+python -m src.evaluation.legal_answer_evaluation --gold "data/evaluation/legal_answer_gold_v1.jsonl" --run "data/evaluation/runs/contract-001.jsonl" --output "reports/contract-001_answer_evaluation.json"
+```
+
+This integration only logs inference output. It does not make model answers
+more accurate, validate the gold benchmark, call an external LLM, or start
+training. Use a separate new run path for every query; combine records into a
+reviewed run file only through a deliberate, separate aggregation step.
