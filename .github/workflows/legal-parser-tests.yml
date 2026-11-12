@@ -42,5 +42,7 @@ jobs:
         run: python -m unittest discover -s tests -p "test_qa_dataset_audit.py" -v
       - name: Run human legal extraction review tests
         run: python -m unittest discover -s tests -p "test_legal_review.py" -v
+      - name: Run legal training candidate gate tests
+        run: python -m unittest discover -s tests -p "test_legal_training_gate.py" -v
       - name: Run legal retrieval evaluation tests
         run: python -m unittest discover -s tests -p "test_legal_retrieval_evaluation.py" -v
