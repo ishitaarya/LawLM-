@@ -50,7 +50,7 @@ Current configuration target:
 
 - Architecture: decoder-only Transformer
 - Target parameters: ~10M
-- Vocabulary: 8,000
+- Vocabulary: 10,000
 - Context length: 256 tokens
 - Embedding dimension: 384
 - Transformer layers: 4
@@ -101,20 +101,30 @@ LawLM-/
 └── README.md
 ```
 
-## Phase 1 status
+## Current implementation status
 
-Phase 1 is the current restart point.
+This repository has progressed beyond the initial Phase 1 foundation.
 
-It establishes:
+| Component | Current status |
+|---|---|
+| Python/PyTorch environment and API smoke test | Implemented |
+| Legal corpus ingestion and initial processing | Initial version implemented; source quality still needs review |
+| 10,000-token tokenizer | Implemented |
+| From-scratch decoder-only Transformer | Implemented; approximately 11.04M parameters |
+| Initial next-token training | Completed for earlier corpus experiments; checkpoints exist |
+| PDF page extraction | Implemented |
+| Legal section parser and cross-page assembler | Implemented on the legal-document feature branch |
+| Structural validation and page/line provenance | Implemented; automated tests are configured |
+| Section-aware, source-traceable chunking | Implemented on the legal-document feature branch |
+| Full source-document validation | Pending actual PDF/page JSONL review |
+| Legal QA evaluation and retrieval integration | In progress |
+| Frontend and final project packaging | Pending |
 
-1. a seven-phase project contract;
-2. a configurable ~10M model target;
-3. device-independent hardware profiles;
-4. a scalable data layout;
-5. testable project configuration;
-6. a foundation for all later model and training code.
+The current Transformer configuration uses a 10,000-token vocabulary, 256-token context, 384-dimensional embeddings, 4 layers, 6 attention heads, and a 1,536-dimensional feed-forward layer. It starts from random weights; it does not use a pretrained LLM.
 
-The next implementation step is to make the Phase 1 configuration and environment checks fully consistent with this new specification.
+The legal document pipeline is documented in [docs/LEGAL_DOCUMENT_PIPELINE.md](docs/LEGAL_DOCUMENT_PIPELINE.md). It creates new outputs only and refuses to overwrite existing files. Structural validation does not establish legal accuracy or training readiness.
+
+**Important:** the actual Indian Contract Act PDF and page-level JSONL are user data and are not assumed to be stored in this repository. Synthetic unit tests can test parser behavior, but full-document validation still requires the real source document and manual legal review.
 
 ## Legal data
 
