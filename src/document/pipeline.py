@@ -18,6 +18,7 @@ import torch
 from src.document.context_builder import build_context
 from src.document.retriever import build_index, load_chunks, search
 from src.generation.generate import load_model
+from src.evaluation.legal_run_logger import build_run_record, write_run_record_new
 
 DEFAULT_CHUNKS = Path("data/documents/Indian_Contract_Act_1872_chunks.jsonl")
 DEFAULT_CHECKPOINT = Path("checkpoints/lawsuit_llm_expanded_best.pt")
@@ -112,7 +113,21 @@ def main() -> None:
     )
     parser.add_argument("--max-new-tokens", type=int, default=80)
     parser.add_argument("--temperature", type=float, default=0.7)
+    parser.add_argument(
+        "--evaluation-record",
+        type=Path,
+        default=None,
+        help="Optional new JSONL path for a single evaluator-compatible run record.",
+    )
+    parser.add_argument(
+        "--query-id",
+        default=None,
+        help="Required with --evaluation-record; must match a reviewed gold benchmark query_id.",
+    )
     args = parser.parse_args()
+
+    if bool(args.evaluation_record) != bool(args.query_id):
+        parser.error("--evaluation-record and --query-id must be supplied together.")
 
     if args.top_k < 1:
         raise ValueError("--top-k must be at least 1.")
@@ -153,6 +168,14 @@ def main() -> None:
     print()
     print("Generated answer:")
     print(answer or "[No generated text]")
+
+    if args.evaluation_record is not None:
+        abstained = not results or not answer.strip()
+        run_record = build_run_record(
+            args.query_id, answer, results, abstained
+        )
+        write_run_record_new(run_record, args.evaluation_record)
+        print(f"Evaluation run record created: {args.evaluation_record}")
     print()
     print("Research/educational output only; not legal advice.")
     print("=" * 72)
