@@ -36,6 +36,8 @@ class AssembledSection:
     page_number: int
     end_page_number: int
     source_pages: list[int] = field(default_factory=list)
+    heading_source: dict[str, Any] = field(default_factory=dict)
+    source_spans: list[dict[str, Any]] = field(default_factory=list)
     text: str = ""
     chapter: str | None = None
     amendments: list[dict[str, Any]] = field(default_factory=list)
@@ -105,10 +107,21 @@ def assemble_sections(
                     page_number=page_number,
                     end_page_number=page_number,
                     source_pages=[page_number],
+                    heading_source={
+                        "page_number": page_number,
+                        "line_number": line_number,
+                        "raw_line": raw_line,
+                    },
                     chapter=current_chapter,
                     section_status="repealed" if number in repealed else "unknown",
                 )
-                _append_text(current, _section_body(raw_line), page_number)
+                _append_text(
+                    current,
+                    _section_body(raw_line),
+                    page_number,
+                    line_number,
+                    raw_line=raw_line,
+                )
                 assembled.append(current)
                 continue
 
@@ -152,7 +165,9 @@ def assemble_sections(
                 continue
 
             if current is not None:
-                _append_text(current, raw_line, page_number)
+                _append_text(
+                    current, raw_line, page_number, line_number, raw_line=raw_line
+                )
 
     results = [asdict(section) for section in assembled]
     for item in results:
