@@ -2,6 +2,21 @@
 
 This pipeline converts extracted PDF pages into provision-bounded legal chunks. It preserves page/line references, keeps amendments and footnotes separate, records known OCR anomalies, and does not claim extracted text is legally correct or current.
 
+## Step 0: audit extracted pages before section assembly
+
+Run this read-only audit immediately after PDF extraction and before building
+sections. It checks duplicate/missing page numbers, blank and unusually short
+pages, inconsistent source filenames, replacement characters and control
+characters. It never repairs extracted text or overwrites the source JSONL.
+
+```powershell
+python -m src.document.legal_source_audit --source "data/documents/Indian_Contract_Act_1872_pages_v2.jsonl" --output "reports/Indian_Contract_Act_1872_page_audit_v2.json"
+```
+
+Inspect every reported short/empty/OCR-warning page against the original PDF.
+A clean report is only a structural extraction check; it cannot prove OCR
+accuracy or detect every missing word, column, table, or legal amendment.
+
 ## Processing flow
 
 ```text
