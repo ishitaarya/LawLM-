@@ -4,10 +4,13 @@ Read-only: this module never writes datasets, filters chunks, or starts training
 """
 from __future__ import annotations
 
+import argparse
+import json
 from collections import defaultdict
+from pathlib import Path
 from typing import Any
 
-from src.document.legal_review import section_text_hash
+from src.document.legal_review import load_jsonl, section_text_hash
 from src.training.legal_training_gate import evaluate_training_candidates
 
 REVIEW_FIELDS = (
@@ -165,3 +168,34 @@ def audit_chunk_provenance(
         "ready_for_training": False,
         "note": "This is a read-only provenance audit, not legal verification or training authorization.",
     }
+
+
+
+def main() -> None:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument("--sections", type=Path, required=True)
+    parser.add_argument("--chunks", type=Path, required=True)
+    parser.add_argument("--review-manifest", type=Path, required=True)
+    parser.add_argument("--output", type=Path, required=True)
+    args = parser.parse_args()
+
+    report = audit_chunk_provenance(
+        load_jsonl(args.sections),
+        load_jsonl(args.chunks),
+        load_jsonl(args.review_manifest),
+    )
+    args.output.parent.mkdir(parents=True, exist_ok=True)
+    with args.output.open("x", encoding="utf-8") as handle:
+        json.dump(report, handle, ensure_ascii=False, indent=2)
+        handle.write("\\n")
+    print(json.dumps({
+        "chunk_count": report["chunk_count"],
+        "candidate_chunk_count": report["candidate_chunk_count"],
+        "issue_count": report["issue_count"],
+        "provenance_integrity_passed": report["provenance_integrity_passed"],
+        "report": str(args.output),
+    }, ensure_ascii=False, indent=2))
+
+
+if __name__ == "__main__":
+    main()
