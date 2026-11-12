@@ -240,3 +240,29 @@ verify the cited authority, export or filter a dataset, modify QA splits, or
 start training. It always reports `ready_for_training: false` and
 `legal_accuracy_verified: false`. Separate QA dataset, benchmark, and final
 training approvals remain necessary. No training is triggered automatically.
+
+
+## Chunk provenance and review-history audit
+
+Generate chunks with the current review manifest attached so each chunk preserves the extraction reviewer, legal-content reviewer, approval timestamps, text hashes, authoritative-source reference, resolution notes, and resolved review flags. The chunker validates manifest coverage before attaching it.
+
+```python
+from pathlib import Path
+from src.document.legal_review import load_jsonl
+from src.document.legal_chunker import create_legal_chunks, write_jsonl_new
+
+sections = load_jsonl(Path("data/processed/Indian_Contract_Act_1872_sections_v2.jsonl"))
+manifest = load_jsonl(Path("data/review/Indian_Contract_Act_1872_review_v2.jsonl"))
+chunks = create_legal_chunks(sections, review_manifest=manifest)
+write_jsonl_new(chunks, Path("data/processed/Indian_Contract_Act_1872_reviewed_chunks_v2.jsonl"))
+```
+
+Then run the read-only audit against those three matching artifacts:
+
+```powershell
+python -m src.training.legal_chunk_provenance_audit --sections "data/processed/Indian_Contract_Act_1872_sections_v2.jsonl" --chunks "data/processed/Indian_Contract_Act_1872_reviewed_chunks_v2.jsonl" --review-manifest "data/review/Indian_Contract_Act_1872_review_v2.jsonl" --output "reports/Indian_Contract_Act_1872_chunk_provenance_v2.json"
+```
+
+The audit checks source section hashes, page ranges, page/line coordinates, source excerpts, raw source lines, exact chunk-text reconstruction, amendment/footnote/OCR annotations, section identity/status, and carried review-history fields. It also confirms that every section passing the two-stage review gate has at least one chunk. Ambiguous or unreviewed sections are blocked from the candidate set.
+
+The report is created at a new path and never overwrites existing data. A passing provenance report is still not legal accuracy verification, QA dataset approval, or permission to train. It never exports a training dataset or starts model training.
