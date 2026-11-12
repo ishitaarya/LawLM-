@@ -170,3 +170,35 @@ python -m unittest discover -s tests -p "test_legal_validation.py" -v
 python -m unittest discover -s tests -p "test_legal_chunker.py" -v
 python -m unittest discover -s tests -p "test_legal_document_pipeline.py" -v
 ```
+
+
+## Human extraction-review manifest
+
+Create a separate review checklist after assembling sections. This command reads
+the section JSONL and creates a **new** manifest; it never edits the source
+sections or chunks:
+
+```powershell
+python -m src.document.legal_review --source "data/processed/Indian_Contract_Act_1872_sections_v2.jsonl" --output "data/review/Indian_Contract_Act_1872_review_v2.jsonl"
+```
+
+Every section starts with `review_status: "pending"`. The manifest preserves
+section identity, page/line provenance, amendments, footnotes, OCR anomalies,
+and a SHA-256 hash of the exact assembled section text. Review reasons include
+short text, duplicate/missing section numbers, missing provenance, unverified
+section status, and annotations requiring attention.
+
+A reviewer approval must be recorded through
+`approve_review_record` in `src.document.legal_review`, supplying a non-empty
+reviewer identity, review timestamp, and the exact `source_text_sha256`
+observed during review. A mismatched hash is rejected. The validation helper
+checks every manifest entry against the current sections and reports changed
+text, missing records, duplicate indices, or invalid approval metadata.
+
+This approval means only that a human reviewed the extracted text and its
+structure against the source. It does **not** certify legal interpretation,
+currentness, completeness, or permission to train. Both
+`legal_accuracy_verified` and `ready_for_training` remain false. If source
+text changes, the previous approval no longer validates and a fresh pending
+manifest should be generated. Keep the review manifest as a separate artifact;
+do not overwrite source sections, chunks, QA datasets, or checkpoints.
