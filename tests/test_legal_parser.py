@@ -17,7 +17,7 @@ class LegalParserTests(unittest.TestCase):
             {"page_number": 1, "text": "ARRANGEMENT OF SECTIONS"},
             {
                 "page_number": 10,
-                "text": "PREAMBLE—WHEREAS it is expedient.\\n"
+                "text": "PREAMBLE—WHEREAS it is expedient.\n"
                 "It is hereby enacted as follows:—",
             },
         ]
@@ -30,7 +30,7 @@ class LegalParserTests(unittest.TestCase):
 
     def test_chapter_heading_is_detected(self):
         self.assertEqual(
-            detect_chapter_headings("CHAPTER I\\nOF CONTRACTS\\nCHAPTER IV"),
+            detect_chapter_headings("CHAPTER I\nOF CONTRACTS\nCHAPTER IV"),
             ["CHAPTER I", "CHAPTER IV"],
         )
 
@@ -50,7 +50,7 @@ class LegalParserTests(unittest.TestCase):
 
     def test_footnote_is_not_mistaken_for_section_heading(self):
         text = (
-            "1. For the Statement of Objects and Reasons, see Gazette of India.\\n"
+            "1. For the Statement of Objects and Reasons, see Gazette of India.\n"
             "2. Interpretation-clause.—In this Act..."
         )
         found = detect_section_candidates(text, page_number=10)
@@ -58,8 +58,8 @@ class LegalParserTests(unittest.TestCase):
 
     def test_amendment_markers_are_detected(self):
         text = (
-            "STATE AMENDMENT\\n"
-            "Uttar Pradesh\\n"
+            "STATE AMENDMENT\n"
+            "Uttar Pradesh\n"
             "Amendment of section 5 of Act (9 of 1872).—..."
         )
         markers = detect_amendment_markers(text)
