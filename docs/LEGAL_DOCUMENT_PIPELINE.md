@@ -70,6 +70,28 @@ The report checks duplicate/missing section numbers, empty text, page ranges, pa
 
 A structurally clean extraction is not proof of legal accuracy, completeness, amendment currency, or suitability for training.
 
+
+## Retrieval and model QA
+
+After the new chunk file has been reviewed, it can be passed to the sparse
+retriever without replacing the legacy chunk file:
+
+```powershell
+python -m src.document.retriever "What makes an agreement a contract?" --input "data/processed/Indian_Contract_Act_1872_legal_chunks_v2.jsonl"
+```
+
+The from-scratch model QA pipeline also accepts an explicit chunk path:
+
+```powershell
+python -m src.document.pipeline "Explain Section 10 in simple language." --chunks "data/processed/Indian_Contract_Act_1872_legal_chunks_v2.jsonl"
+```
+
+Explicitly marked repealed sections are excluded from normal retrieval. The
+retriever has an opt-in `--include-repealed` flag for historical research.
+Unknown or review-required sections are not silently treated as verified law;
+their status is carried into the model context. The QA pipeline still depends
+on the configured tokenizer and checkpoint being available locally.
+
 ## Manual review rules
 
 - Do not silently turn OCR strings such as `1151.` or `1161.` into Section 151 or 161. They are recorded as anomalies for human review.
