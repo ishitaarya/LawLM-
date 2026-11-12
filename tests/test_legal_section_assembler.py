@@ -76,6 +76,32 @@ class LegalSectionAssemblerTests(unittest.TestCase):
         self.assertEqual(len(result), 1)
         self.assertIn("Actual provision", result[0]["text"])
 
+    def test_heading_and_body_keep_exact_page_line_provenance(self):
+        pages = [
+            {
+                "page_number": 10,
+                "text": "Preamble text\\n1. Short title.—This Act may be called the Act.\\n"
+                "It extends to the whole of India.",
+            },
+            {"page_number": 11, "text": "It also applies to the notified territories."},
+        ]
+        result = assemble_sections(pages, body_start_page=10)
+        section = result[0]
+        self.assertEqual(
+            section["heading_source"],
+            {
+                "page_number": 10,
+                "line_number": 2,
+                "raw_line": "1. Short title.—This Act may be called the Act.",
+            },
+        )
+        self.assertEqual(
+            [(span["page_number"], span["line_number"]) for span in section["source_spans"]],
+            [(10, 2), (10, 3), (11, 1)],
+        )
+        self.assertEqual(section["source_spans"][0]["text"], "This Act may be called the Act.")
+        self.assertEqual(section["source_spans"][-1]["text"], "It also applies to the notified territories.")
+
 
 if __name__ == "__main__":
     unittest.main()
