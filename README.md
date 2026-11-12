@@ -113,6 +113,7 @@ This repository has progressed beyond the initial Phase 1 foundation.
 | From-scratch decoder-only Transformer | Implemented; approximately 11.04M parameters |
 | Initial next-token training | Completed for earlier corpus experiments; checkpoints exist |
 | PDF page extraction | Implemented |
+| Page-level PDF extraction audit | Implemented as a read-only pre-assembly gate; full source audit pending |
 | Legal section parser and cross-page assembler | Implemented on the legal-document feature branch |
 | Structural validation and page/line provenance | Implemented; automated tests are configured |
 | Section-aware, source-traceable chunking | Implemented on the legal-document feature branch |
