@@ -36,8 +36,9 @@ def extract_pdf(pdf_path: Path) -> list[dict]:
 
 
 def save_pages(pages: list[dict], output_path: Path, source_pdf: Path) -> None:
+    """Write extracted pages to a new file; never overwrite an existing extraction."""
     output_path.parent.mkdir(parents=True, exist_ok=True)
-    with output_path.open("w", encoding="utf-8") as handle:
+    with output_path.open("x", encoding="utf-8") as handle:
         for page in pages:
             record = {"source_file": source_pdf.name, **page}
             handle.write(json.dumps(record, ensure_ascii=False) + "\n")
