@@ -52,12 +52,18 @@ def validate_sections(sections: list[dict[str, Any]]) -> dict[str, Any]:
         for item in sections
         if not item.get("source_pages")
     ]
-    page_order_errors = [
-        item.get("section_number")
-        for item in sections
-        if item.get("source_pages")
-        and item["source_pages"] != sorted(set(item["source_pages"]))
-    ]
+    page_order_errors = []
+    for item in sections:
+        source_pages = item.get("source_pages")
+        if not source_pages:
+            continue
+        try:
+            normalized_pages = [int(page) for page in source_pages]
+        except (TypeError, ValueError):
+            page_order_errors.append(item.get("section_number"))
+            continue
+        if normalized_pages != sorted(set(normalized_pages)):
+            page_order_errors.append(item.get("section_number"))
     missing_heading_provenance = [
         item.get("section_number")
         for item in sections
