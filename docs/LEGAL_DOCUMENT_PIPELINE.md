@@ -220,6 +220,7 @@ The candidate gate can be called from Python after loading the current section
 JSONL and review manifest:
 
 ```python
+from pathlib import Path
 from src.document.legal_review import load_jsonl
 from src.training.legal_training_gate import evaluate_training_candidates
 
