@@ -55,6 +55,18 @@ class LegalSectionAssemblerTests(unittest.TestCase):
         self.assertEqual(default[0]["section_status"], "unknown")
         self.assertEqual(marked[0]["section_status"], "repealed")
 
+    def test_fused_footnote_section_number_is_preserved_for_review(self):
+        pages = [{
+            "page_number": 44,
+            "text": "150. Previous provision.—Existing text.\\n"
+            "1151. Special provision.—Text belonging to possible Section 151.",
+        }]
+        result = assemble_sections(pages, body_start_page=44)
+        self.assertEqual(len(result), 1)
+        self.assertNotIn("1151.", result[0]["text"])
+        self.assertEqual(len(result[0]["ocr_anomalies"]), 1)
+        self.assertIn("manual review", result[0]["ocr_anomalies"][0]["reason"])
+
     def test_front_matter_is_skipped_only_when_body_start_is_known(self):
         pages = [
             {"page_number": 1, "text": "1. Contents.—Section list."},
