@@ -187,7 +187,7 @@ def main() -> None:
     args.output.parent.mkdir(parents=True, exist_ok=True)
     with args.output.open("x", encoding="utf-8") as handle:
         json.dump(report, handle, ensure_ascii=False, indent=2)
-        handle.write("\\n")
+        handle.write("\n")
     print(json.dumps({
         "chunk_count": report["chunk_count"],
         "candidate_chunk_count": report["candidate_chunk_count"],
