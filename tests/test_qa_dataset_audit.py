@@ -42,6 +42,15 @@ class QADatasetAuditTests(unittest.TestCase):
         self.assertIn("missing_section", codes)
         self.assertIn("empty_question", codes)
 
+    def test_generic_truncation_flag_requires_review(self):
+        item = record()
+        item["truncated"] = True
+        report = audit_records([item])
+        self.assertIn(
+            "truncation_flagged_for_review",
+            report["issues"][0]["issues"],
+        )
+
 
 if __name__ == "__main__":
     unittest.main()
